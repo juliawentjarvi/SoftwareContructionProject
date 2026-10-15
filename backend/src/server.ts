@@ -2,6 +2,8 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { connectDB } from "./config/database";
+import authRoutes from "./routes/auth.routes";
+import mealRoutes from "./routes/meal.routes";
 
 const app = express();
 
@@ -14,6 +16,9 @@ app.get("/api/health", (req, res) => {
     message: "Bear Care API is running!"
   });
 });
+
+app.use("/api/auth", authRoutes);
+app.use("/api/meals", mealRoutes);
 
 const PORT = Number(process.env.PORT) || 5000;
 
