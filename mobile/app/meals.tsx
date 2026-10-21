@@ -1,55 +1,114 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, TextInput, Button, FlatList, StyleSheet } from "react-native";
-import api from "../src/services/api";
+import React, { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import api, { errorMessage, MealEntry } from "../src/services/api";
 
-export default function MealsScreen({ token }: { token?: string }) {
-	const [meals, setMeals] = useState<any[]>([]);
+const mealTypes: MealEntry["mealType"][] = ["breakfast", "lunch", "dinner", "snack"];
+
+export default function MealsScreen({ token }: { token: string }) {
+	const [meals, setMeals] = useState<MealEntry[]>([]);
 	const [name, setName] = useState("");
 	const [notes, setNotes] = useState("");
+	const [mealType, setMealType] = useState<MealEntry["mealType"]>("breakfast");
+	const [eatenAt, setEatenAt] = useState(new Date().toISOString());
+	const [error, setError] = useState<string | null>(null);
+	const [isLoading, setIsLoading] = useState(true);
+	const [isSaving, setIsSaving] = useState(false);
 
-	const load = async () => {
-		if (!token) return;
-		const res: any = await api.getMeals(token);
-		if (res.ok) setMeals(res.body || []);
-	};
-
-	useEffect(() => {
-		load();
+	const load = useCallback(async () => {
+		setIsLoading(true);
+		const result = await api.getMeals(token);
+		if (result.ok) {
+			setMeals(result.body.meals);
+			setError(null);
+		} else {
+			setError(errorMessage(result.body, "Your meal log couldn't be loaded."));
+		}
+		setIsLoading(false);
 	}, [token]);
 
+	useEffect(() => { void load(); }, [load]);
+
 	const add = async () => {
-		if (!token || !name) return;
-		const res: any = await api.createMeal(token, name, notes);
-		if (res.ok) {
+		if (!name.trim()) {
+			setError("Add a name for this meal.");
+			return;
+		}
+		setIsSaving(true);
+		const result = await api.createMeal(token, name.trim(), mealType, notes.trim() || undefined, eatenAt);
+		if (result.ok) {
 			setName("");
 			setNotes("");
-			load();
+			setEatenAt(new Date().toISOString());
+			await load();
+		} else {
+			setError(errorMessage(result.body, "This meal couldn't be saved. Check the date and try again."));
 		}
+		setIsSaving(false);
+	};
+
+	const remove = async (mealId: string) => {
+		const result = await api.deleteMeal(token, mealId);
+		if (result.ok) await load();
+		else setError(errorMessage(result.body, "This meal couldn't be deleted."));
 	};
 
 	return (
 		<View style={styles.container}>
-			<Text style={styles.title}>Meals</Text>
-			<TextInput placeholder="Meal name" style={styles.input} value={name} onChangeText={setName} />
-			<TextInput placeholder="Notes" style={styles.input} value={notes} onChangeText={setNotes} />
-			<Button title="Add meal" onPress={add} />
-
-			<FlatList data={meals} keyExtractor={(i) => i._id} renderItem={({ item }) => (
-				<View style={styles.item}>
-					<Text style={styles.itemTitle}>{item.name}</Text>
-					<Text style={styles.itemSub}>{new Date(item.eatenAt).toLocaleString()}</Text>
-					{item.notes ? <Text>{item.notes}</Text> : null}
+			<Text style={styles.kicker}>YOUR FOOD JOURNAL</Text>
+			<Text style={styles.title}>Meal log</Text>
+			<Text style={styles.subtitle}>Log a meal now or enter one you had earlier.</Text>
+			<View style={styles.form}>
+				<TextInput accessibilityLabel="Meal name" placeholder="What did you eat?" style={styles.input} value={name} onChangeText={setName} maxLength={100} />
+				<View style={styles.types}>
+					{mealTypes.map((type) => <Pressable key={type} onPress={() => setMealType(type)} style={[styles.type, mealType === type && styles.typeSelected]}><Text style={[styles.typeText, mealType === type && styles.typeTextSelected]}>{type}</Text></Pressable>)}
 				</View>
-			)} />
+				<Text style={styles.label}>When (ISO date and time)</Text>
+				<TextInput accessibilityLabel="Meal date and time" style={styles.input} value={eatenAt} onChangeText={setEatenAt} autoCapitalize="none" />
+				<TextInput accessibilityLabel="Meal notes" placeholder="Notes (optional)" style={[styles.input, styles.notes]} value={notes} onChangeText={setNotes} multiline maxLength={280} />
+				<Pressable accessibilityRole="button" onPress={add} disabled={isSaving} style={[styles.submit, isSaving && styles.disabled]}>
+					{isSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Save meal</Text>}
+				</Pressable>
+			</View>
+			{error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+			<Text style={styles.sectionTitle}>Recent meals</Text>
+			{isLoading ? <ActivityIndicator color="#315b49" /> : <FlatList data={meals} keyExtractor={(meal) => meal._id} ListEmptyComponent={<Text style={styles.empty}>Your entries will appear here.</Text>} renderItem={({ item }) => (
+				<View style={styles.entry}>
+					<View style={styles.entryBody}>
+						<Text style={styles.entryName}>{item.name}</Text>
+						<Text style={styles.entryMeta}>{item.mealType}  ·  {new Date(item.eatenAt).toLocaleString()}</Text>
+						{item.notes ? <Text style={styles.entryNotes}>{item.notes}</Text> : null}
+					</View>
+					<Pressable accessibilityRole="button" accessibilityLabel={`Delete ${item.name}`} onPress={() => void remove(item._id)}><Text style={styles.delete}>Delete</Text></Pressable>
+				</View>
+			)} />}
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
-	container: { padding: 16 },
-	title: { fontSize: 20, marginBottom: 12 },
-	input: { borderWidth: 1, borderColor: "#ccc", padding: 8, marginBottom: 8 },
-	item: { padding: 8, borderBottomWidth: 1, borderColor: "#eee" },
-	itemTitle: { fontWeight: "600" },
-	itemSub: { color: "#666", fontSize: 12 },
+	container: { flex: 1, padding: 20, backgroundColor: "#f8f7f0" },
+	kicker: { color: "#a34b36", fontSize: 11, fontWeight: "800", letterSpacing: 1.5 },
+	title: { color: "#1d2923", fontSize: 28, fontWeight: "700", marginTop: 5 },
+	subtitle: { color: "#58665e", fontSize: 14, marginTop: 5, marginBottom: 18 },
+	form: { padding: 16, backgroundColor: "#fff", borderColor: "#dce5dc", borderWidth: 1, borderRadius: 8 },
+	label: { color: "#58665e", fontSize: 12, marginBottom: 6 },
+	input: { minHeight: 46, borderWidth: 1, borderColor: "#cbd6cd", borderRadius: 6, paddingHorizontal: 12, color: "#1d2923", marginBottom: 10, fontSize: 15 },
+	notes: { minHeight: 74, paddingTop: 10, textAlignVertical: "top" },
+	types: { flexDirection: "row", gap: 6, marginBottom: 12, flexWrap: "wrap" },
+	type: { paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: "#cbd6cd", borderRadius: 6 },
+	typeSelected: { backgroundColor: "#315b49", borderColor: "#315b49" },
+	typeText: { color: "#315b49", textTransform: "capitalize", fontSize: 12, fontWeight: "600" },
+	typeTextSelected: { color: "#fff" },
+	submit: { minHeight: 46, backgroundColor: "#c5523e", borderRadius: 6, alignItems: "center", justifyContent: "center" },
+	disabled: { opacity: 0.7 },
+	submitText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+	error: { color: "#a6372d", marginTop: 10 },
+	sectionTitle: { color: "#1d2923", fontSize: 18, fontWeight: "700", marginTop: 22, marginBottom: 8 },
+	empty: { color: "#58665e", paddingVertical: 18 },
+	entry: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, paddingVertical: 12, borderBottomWidth: 1, borderColor: "#e3e8e3" },
+	entryBody: { flex: 1 },
+	entryName: { color: "#1d2923", fontWeight: "700", fontSize: 15 },
+	entryMeta: { color: "#58665e", fontSize: 12, marginTop: 3, textTransform: "capitalize" },
+	entryNotes: { color: "#58665e", fontSize: 13, marginTop: 4 },
+	delete: { color: "#a6372d", fontSize: 13, fontWeight: "600", padding: 8 },
 });

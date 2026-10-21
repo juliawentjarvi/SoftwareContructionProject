@@ -10,7 +10,7 @@ import {
 	TextInput,
 	View,
 } from "react-native";
-import api, { AuthSession } from "../src/services/api";
+import api, { AuthSession, errorMessage } from "../src/services/api";
 
 interface LoginScreenProps {
 	onAuthenticated: (session: AuthSession) => void;
@@ -34,7 +34,7 @@ export default function LoginScreen({ onAuthenticated, onCreateAccount }: LoginS
 		try {
 			const result = await api.login(email.trim(), password);
 			if (!result.ok) {
-				setError(result.body.message || "Those details didn't work. Check them and try again.");
+				setError(errorMessage(result.body, "Those details didn't work. Check them and try again."));
 				return;
 			}
 			onAuthenticated(result.body);

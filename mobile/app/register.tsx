@@ -10,7 +10,7 @@ import {
 	TextInput,
 	View,
 } from "react-native";
-import api, { AuthSession } from "../src/services/api";
+import api, { AuthSession, errorMessage } from "../src/services/api";
 
 interface RegisterScreenProps {
 	onAuthenticated: (session: AuthSession) => void;
@@ -19,6 +19,7 @@ interface RegisterScreenProps {
 
 export default function RegisterScreen({ onAuthenticated, onSignIn }: RegisterScreenProps) {
 	const [email, setEmail] = useState("");
+	const [displayName, setDisplayName] = useState("");
 	const [password, setPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
 	const [error, setError] = useState<string | null>(null);
@@ -26,12 +27,12 @@ export default function RegisterScreen({ onAuthenticated, onSignIn }: RegisterSc
 
 	const handleRegister = async () => {
 		setError(null);
-		if (!email.trim() || !password || !confirmPassword) {
+		if (!email.trim() || !displayName.trim() || !password || !confirmPassword) {
 			setError("Complete all fields to create your account.");
 			return;
 		}
-		if (password.length < 6) {
-			setError("Use at least 6 characters for your password.");
+		if (password.length < 10) {
+			setError("Use at least 10 characters for your password.");
 			return;
 		}
 		if (password !== confirmPassword) {
@@ -41,9 +42,9 @@ export default function RegisterScreen({ onAuthenticated, onSignIn }: RegisterSc
 
 		setIsSubmitting(true);
 		try {
-			const result = await api.register(email.trim(), password);
+			const result = await api.register(email.trim(), password, displayName.trim());
 			if (!result.ok) {
-				setError(result.body.message || "We couldn't create your account. Try again.");
+				setError(errorMessage(result.body, "We couldn't create your account. Try again."));
 				return;
 			}
 			onAuthenticated(result.body);
@@ -77,12 +78,23 @@ export default function RegisterScreen({ onAuthenticated, onSignIn }: RegisterSc
 						textContentType="emailAddress"
 						accessibilityLabel="Email address"
 					/>
+					<Text style={styles.label}>Display name</Text>
+					<TextInput
+						style={styles.input}
+						value={displayName}
+						onChangeText={setDisplayName}
+						placeholder="What should we call you?"
+						placeholderTextColor="#7b8780"
+						autoCapitalize="words"
+						maxLength={60}
+						accessibilityLabel="Display name"
+					/>
 					<Text style={styles.label}>Password</Text>
 					<TextInput
 						style={styles.input}
 						value={password}
 						onChangeText={setPassword}
-						placeholder="At least 6 characters"
+						placeholder="At least 10 characters"
 						placeholderTextColor="#7b8780"
 						secureTextEntry
 						autoComplete="new-password"
