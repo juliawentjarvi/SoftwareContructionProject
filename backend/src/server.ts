@@ -6,6 +6,9 @@ import authRoutes from "./routes/auth.routes";
 import { protect, AuthRequest } from "./middleware/auth";
 import bearRoutes from "./routes/bear.routes";
 import mealRoutes from "./routes/meal.routes";
+import settingsRoutes from "./routes/settings.routes";
+import stepsRoutes from "./routes/steps.ruotes";
+import sudokuRoutes from "./routes/sudoku.routes";
 
 const app = express();
 
@@ -14,6 +17,9 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/bear", bearRoutes);
 app.use("/api/meals", mealRoutes);
+app.use("/api/settings", settingsRoutes);
+app.use("/api/steps", stepsRoutes);
+app.use("/api/sudoku", sudokuRoutes);
 
 
 app.get("/api/health", (req, res) => {

@@ -2,6 +2,9 @@ import { Router, Response } from "express";
 import mongoose from "mongoose";
 import Meal, { type MealType } from "../models/Meal";
 import { protect, type AuthRequest } from "../middleware/auth";
+import { logMealWithEnergy } from "../services/energy.service";
+import Bear from "../models/Bear";
+import DailyActivity from "../models/DailyActivity";
 
 const router = Router();
 
@@ -79,14 +82,22 @@ router.post("/", async (req: AuthRequest, res: Response) => {
       }
     }
 
-    const meal = await Meal.create({
+    
+    if (!req.userId) {
+      res.status(401).json({
+        message: "Not authenticated"
+      });
+      return;
+    }
+
+    const meal = await logMealWithEnergy({
       userId: req.userId,
       name: name.trim(),
       type,
       notes: notes?.trim(),
-      eatenAt: mealDate,
-      energyAwarded: 0
+      eatenAt: mealDate
     });
+
 
     res.status(201).json({
       message: "Meal logged successfully",
@@ -102,26 +113,117 @@ router.post("/", async (req: AuthRequest, res: Response) => {
 
 // DELETE /api/meals/:id
 // Delete one of the logged-in user's meals
+
+// DELETE /api/meals/:id
+// Delete a meal and reverse its energy reward
 router.delete("/:id", async (req: AuthRequest, res: Response) => {
+  const mealId = req.params.id;
+
+  if (
+    typeof mealId !== "string" ||
+    !mongoose.isValidObjectId(mealId)
+  ) {
+    res.status(400).json({
+      message: "Invalid meal ID"
+    });
+    return;
+  }
+
+  if (!req.userId) {
+    res.status(401).json({
+      message: "Not authenticated"
+    });
+    return;
+  }
+
+  const session = await mongoose.startSession();
+
   try {
-    const mealId = req.params.id;
+    let deleted = false;
+    let energyRemoved = 0;
+    let totalEnergy = 0;
 
-    if (
-      typeof mealId !== "string" ||
-      !mongoose.isValidObjectId(mealId)
-    ) {
-      res.status(400).json({
-        message: "Invalid meal ID"
-      });
-      return;
-    }
+    await session.withTransaction(async () => {
+      const meal = await Meal.findOne({
+        _id: mealId,
+        userId: req.userId
+      }).session(session);
 
-    const meal = await Meal.findOneAndDelete({
-      _id: mealId,
-      userId: req.userId
+      if (!meal) {
+        return;
+      }
+
+      const bear = await Bear.findOne({
+        userId: req.userId
+      }).session(session);
+
+      if (!bear) {
+        throw new Error("Bear not found");
+      }
+
+      const mealEnergy = Math.max(
+        0,
+        meal.energyAwarded ?? 0
+      );
+
+      energyRemoved = Math.min(
+        mealEnergy,
+        bear.energy
+      );
+
+      bear.energy = Math.max(
+        0,
+        bear.energy - energyRemoved
+      );
+
+      await bear.save({ session });
+
+      // Only adjust today's meal reward counter.
+      const now = new Date();
+
+      const dayStart = new Date(
+        Date.UTC(
+          now.getUTCFullYear(),
+          now.getUTCMonth(),
+          now.getUTCDate()
+        )
+      );
+
+      const dayEnd = new Date(
+        dayStart.getTime() + 24 * 60 * 60 * 1000
+      );
+
+      if (
+        mealEnergy > 0 &&
+        meal.eatenAt >= dayStart &&
+        meal.eatenAt < dayEnd
+      ) {
+        await DailyActivity.updateOne(
+          {
+            userId: req.userId,
+            date: dayStart,
+            mealsRewarded: { $gt: 0 }
+          },
+          {
+            $inc: { mealsRewarded: -1 }
+          },
+          { session }
+        );
+      }
+
+      await Meal.deleteOne(
+        {
+          _id: mealId,
+          userId: req.userId
+        },
+        { session }
+      );
+
+      deleted = true;
+      totalEnergy = bear.energy;
     });
 
-    if (!meal) {
+    if (!deleted) {
       res.status(404).json({
         message: "Meal not found"
       });
@@ -129,14 +231,20 @@ router.delete("/:id", async (req: AuthRequest, res: Response) => {
     }
 
     res.json({
-      message: "Meal deleted successfully"
+      message: "Meal deleted successfully",
+      energyRemoved,
+      totalEnergy
     });
   } catch (error) {
     console.error("Failed to delete meal:", error);
+
     res.status(500).json({
       message: "Failed to delete meal"
     });
+  } finally {
+    await session.endSession();
   }
 });
+
 
 export default router;
