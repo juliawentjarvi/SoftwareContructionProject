@@ -1,0 +1,189 @@
+# Research: Bear Care Wellness Experience
+
+## 1. Active Client/API Boundary
+
+**Decision**: Treat `mobile/` and the documented `server/` API as the primary product path. Do
+not expand or delete the separate `backend/` tree during stabilization until its ownership and
+consumers are confirmed.
+
+**Rationale**: `server/README.md` describes a standalone API for the Expo client, lists routes
+that align with the mobile API service, and provides network/setup guidance. The alternate
+`backend/` implementation has different route shapes and no comparable README. Maintaining two
+active contracts would make integration and regression results ambiguous.
+
+**Alternatives considered**:
+- Implement every feature in both API trees: rejected because there is no evidence the Expo app
+  consumes both and duplicate behavior would drift.
+- Delete the alternate tree immediately: rejected because ownership and external consumers have
+  not been established.
+
+## 2. API Build and Test Baseline
+
+**Decision**: Make the API package's test, typecheck, and build commands independent from Expo
+configuration before adding product behavior.
+
+**Rationale**: `server/tsconfig.json` currently extends `expo/tsconfig.base`, which does not resolve
+from the API package. The observed API test, typecheck, and build commands fail while parsing that
+configuration, before testing application code. The first fix must restore the existing validation
+tools and must not disguise their failure as a successful test run.
+
+**Alternatives considered**:
+- Run API tests through mobile's Expo configuration: rejected because server typechecking should
+  not depend on the mobile toolchain.
+- Ignore test/build failures and proceed with new features: rejected because that makes regressions
+  indistinguishable from the known baseline failure.
+
+## 3. Multi-User Test Isolation
+
+**Decision**: Test ownership behavior with at least two distinct test accounts and isolated test
+data, including cross-account reads, updates, and deletes. Ensure cleanup occurs even after a test
+failure and that repeat/parallel runs do not reuse a single fixed email or record.
+
+**Rationale**: Unauthenticated-route tests alone do not detect broken ownership filters for valid
+tokens. Distinct account identities verify real isolation. Database-backed tests should use a
+dedicated test database or scoped fixtures; no production or personal database may be used.
+
+**Alternatives considered**:
+- A single shared test user: rejected because it cannot prove account separation and conflicts
+  across repeated/parallel runs.
+- Rely only on manual testing: rejected because deterministic cross-account checks are suitable
+  automated regressions.
+
+## 4. Network-Independent Validation
+
+**Decision**: Keep API endpoint selection configurable at runtime. Validate switching between
+reachable endpoints and recover from invalid, unreachable, timed-out, or interrupted requests.
+Keep the last known working endpoint if a new endpoint cannot pass its health check.
+
+**Rationale**: A device's `localhost` is not the developer computer; emulator loopback addresses
+are specific to emulator development; LAN addresses work only when routing and network policy
+permit access. Testing across changing networks requires either a reachable current LAN address
+or a stable HTTPS API host. A user must be able to change endpoints without rebuilding the app.
+
+**Alternatives considered**:
+- Hard-code a developer machine/LAN address: rejected because it changes and is not broadly
+  reachable.
+- Require all testing devices to use the same Wi-Fi: rejected because it cannot validate the
+  different-connection requirement.
+- Use public plain HTTP for convenience: rejected because account credentials and tokens would be
+  exposed in transit.
+
+## 5. Unreliable Connection Behavior
+
+**Decision**: Distinguish server health-check failures, request timeouts, interrupted connections,
+and application/API errors in user-visible outcomes. Preserve unsaved user input where practical.
+Do not automatically replay non-idempotent writes unless the request has an idempotency mechanism;
+allow safe retry after the user confirms or repeats the action.
+
+**Rationale**: A generic network error must not erase user work or present a failed write as
+successful. Blindly retrying meal creation can create duplicates if the server completed a write
+but the response was lost. Health checks establish reachability but do not guarantee every later
+request will succeed.
+
+**Alternatives considered**:
+- Retry every failed request automatically: rejected because a timed-out write may already have
+  committed and be duplicated.
+- Treat a successful health check as proof all future requests will work: rejected because
+  connectivity can change between requests.
+
+## 6. Expo Go as an Integration Environment
+
+**Decision**: Use Expo Go to validate the product flows and device/network behavior that Expo Go
+supports. Record unsupported native functionality, including any notification actions or
+development-build-only capabilities, as a runtime limitation and provide a separate test path for
+those capabilities.
+
+**Rationale**: A passing simulator or typecheck does not verify an installed app's network access,
+permission state, or navigation. Conversely, a native feature unavailable in Expo Go is not by
+itself proof that the product logic is defective.
+
+**Alternatives considered**:
+- Require Expo Go to support every native capability: rejected because its native module set is
+  constrained.
+- Replace all real-device checks with unit tests: rejected because that would not exercise actual
+  network reachability and permissions.
+
+## 7. Specification Discrepancy and Iteration
+
+**Decision**: Before fixing a behavior mismatch, capture expected behavior, observed behavior,
+reproduction steps, and evidence. Determine whether the implementation is defective or whether
+the specification is incomplete or incorrect. Change the code for a confirmed implementation bug;
+update the specification and downstream plan/tasks for a confirmed requirements change.
+
+**Rationale**: Calling every mismatch a bug risks implementing the wrong product. This decision
+process keeps changes reviewable and ties completion to measurable behavior.
+
+**Alternatives considered**:
+- Always change the code to match the spec without investigation: rejected because the spec can be
+  stale, internally inconsistent, or constrained by documented platform behavior.
+- Silently revise the spec to match current behavior: rejected because existing behavior is not
+  automatically the intended behavior.
+
+## 8. Feature Delivery Order
+
+**Decision**: After stabilization, implement the spec's P1 account/profile/meal-log/timezone and
+reminder journeys before the P2 activity/progress/pet/reward experiences. Validate each slice
+before proceeding to the next.
+
+**Rationale**: The feature spec prioritizes usable account and meal tracking and user-controlled
+reminders as its first independently testable value. Staged delivery reduces the regression
+surface and provides a working app earlier.
+
+**Alternatives considered**:
+- Build the entire experience in one pass: rejected because it makes debugging and acceptance
+  testing less measurable.
+- Start visual pet features before account/log reliability: rejected because the core data and
+  goals those features depend on would not yet be dependable.
+
+## 9. Responsiveness and Expected-Load Targets
+
+**Decision**: Use the user-provided targets as acceptance thresholds: main screen usable within
+3 seconds, common interaction feedback within 100 ms, common transitions within 300 ms excluding
+network waits, and at least 95% of ordinary API requests under 1 second client-measured.
+Performance verification uses 25 concurrent users making up to 12 ordinary requests per minute
+for five minutes, with normal network round-trip latency up to 100 ms and packet loss below 1%.
+
+**Rationale**: Percentile-based measurement makes latency targets testable and avoids allowing
+individual fast responses to conceal a poor user experience. Recording test conditions makes
+results comparable without claiming production-scale capacity beyond the stated baseline.
+
+**Alternatives considered**:
+- Report average latency only: rejected because the average can hide slow tail requests.
+- Claim unrestricted production capacity from the baseline load test: rejected because workload,
+  deployment size, and traffic profile beyond the defined test have not been specified.
+
+## 10. Concurrent Update and Offline Policy
+
+**Decision**: Detect stale edits to the same profile/record field and reject the later stale write
+with a recoverable conflict; preserve the latest saved value. Concurrent changes to different
+fields or records both persist. Offline access is read-only for previously loaded data marked
+stale; new writes are not queued.
+
+**Rationale**: Explicit conflict detection prevents one session from silently losing another
+session's changes. A visible retry after refresh is simpler and safer than silently resolving
+ambiguous edits. Offline write queues create ordering and duplicate-submission risks beyond the
+current feature scope.
+
+**Alternatives considered**:
+- Last-write-wins for concurrent updates to the same field: rejected because it silently discards
+  valid user changes.
+- Queue offline writes for later replay: rejected because conflict ordering and uncertain commits
+  create duplicate or ambiguous state.
+
+## 11. Stability and Resource Verification
+
+**Decision**: Validate zero reproducible crashes in a 30-minute scenario with at least 500 screen
+transitions and repeated slow/interrupted/unavailable network events. Observe memory after warm-up
+for a sustained upward trend. Report device/runtime, request p50/p95/p99, failure rate, and
+resource observations.
+
+**Rationale**: A bounded repeatable scenario gives stability review a consistent basis and
+separates normal use from error recovery. Memory behavior varies across devices and runtimes, so
+the initial target is to detect a sustained trend and record the conditions rather than assert an
+unsupported universal absolute-memory limit.
+
+**Alternatives considered**:
+- Use a single launch smoke test: rejected because it does not exercise navigation leaks or
+  repeated network recovery.
+- Set one absolute memory cap across all devices: rejected because hardware/runtime differences
+  make an unqualified cap misleading.

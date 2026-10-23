@@ -12,6 +12,14 @@ Standalone TypeScript/Express API for the Expo client. MongoDB Atlas stores acco
 
 For a production deployment, use a managed Node host, set the same environment variables in its secret manager, restrict `ALLOWED_ORIGINS` to the deployed web client origins, and keep Atlas network access limited to the host. Native Android/iOS clients do not send browser origins, so CORS is only a browser restriction, not an API authentication mechanism.
 
+## Mobile network access
+
+The mobile app can save a server URL from **Connection settings** on the sign-in/create-account screen or from **Settings → Server connection**. Enter either the API root (for example, `https://api.example.com`) or the full API base (`https://api.example.com/api`); the app checks `/health` before saving. The saved address is used for all subsequent mobile API requests and takes precedence over `EXPO_PUBLIC_API_URL`.
+
+For access across changing public and private Wi-Fi or cellular networks, deploy the API behind a stable DNS name with HTTPS on port 443. This avoids depending on a developer machine's changing LAN address, and is generally more compatible with guest Wi-Fi and carrier networks. For a server intentionally kept private, connect the phone to that network or its VPN and enter its reachable private address instead; private LAN addresses are not reachable from unrelated networks. Do not expose the API over plain HTTP on public networks.
+
+`EXPO_PUBLIC_API_URL` is a build-time default for development or distribution. Set it to the stable HTTPS API base before building, or leave the default and configure the address in the app. To test a local server from a physical device, use the development computer's current LAN address and ensure the device and computer can reach each other; `localhost` and Android's `10.0.2.2` are only for local/emulator development.
+
 ## API contract
 
 All error responses use `{ "error": { "code": "...", "message": "..." } }`. Protected endpoints require `Authorization: Bearer <accessToken>`. Access tokens expire according to `JWT_EXPIRES_IN` (7 days by default).

@@ -11,6 +11,7 @@ import {
 	View,
 } from "react-native";
 import api, { AuthSession, errorMessage } from "../src/services/api";
+import ApiConnectionSettings from "../src/components/ApiConnectionSettings";
 
 interface RegisterScreenProps {
 	onAuthenticated: (session: AuthSession) => void;
@@ -132,6 +133,7 @@ export default function RegisterScreen({ onAuthenticated, onSignIn }: RegisterSc
 						<Text style={styles.switchAction}>Sign in</Text>
 					</Pressable>
 				</View>
+				<ApiConnectionSettings />
 			</ScrollView>
 		</KeyboardAvoidingView>
 	);

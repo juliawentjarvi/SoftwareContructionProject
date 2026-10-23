@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import api, { AuthSession, errorMessage, Profile } from "../src/services/api";
 import { clearMealReminders, remindersAvailable, requestReminderPermission, scheduleMealReminders } from "../src/services/reminders";
+import ApiConnectionSettings from "../src/components/ApiConnectionSettings";
 
 interface SettingsScreenProps {
 	session: AuthSession;
@@ -81,6 +82,11 @@ export default function SettingsScreen({ session, onProfileChanged, onAccountDel
 			<Text style={styles.kicker}>YOUR ACCOUNT</Text>
 			<Text style={styles.title}>Profile & settings</Text>
 			<Text style={styles.email}>{profile.email}</Text>
+
+			<View style={styles.section}>
+				<Text style={styles.sectionTitle}>Server connection</Text>
+				<ApiConnectionSettings />
+			</View>
 
 			<View style={styles.section}>
 				<Text style={styles.sectionTitle}>Profile</Text>

@@ -11,6 +11,7 @@ import {
 	View,
 } from "react-native";
 import api, { AuthSession, errorMessage } from "../src/services/api";
+import ApiConnectionSettings from "../src/components/ApiConnectionSettings";
 
 interface LoginScreenProps {
 	onAuthenticated: (session: AuthSession) => void;
@@ -98,6 +99,7 @@ export default function LoginScreen({ onAuthenticated, onCreateAccount }: LoginS
 						<Text style={styles.switchAction}>Create account</Text>
 					</Pressable>
 				</View>
+				<ApiConnectionSettings />
 			</ScrollView>
 		</KeyboardAvoidingView>
 	);

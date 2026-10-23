@@ -30,6 +30,11 @@ describe('API boundary', () => {
   it('rejects invalid login input before accessing the database', async () => {
     const response = await request(app).post('/api/auth/login').send({ email: 'bad-email', password: '' });
     expect(response.status).toBe(400);
-    expect(response.body.error.code).toBe('INVALID_REQUEST');
+    expect(response.body).toEqual({
+      error: {
+        code: 'INVALID_REQUEST',
+        message: expect.any(String),
+      },
+    });
   });
 });
