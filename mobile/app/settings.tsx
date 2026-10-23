@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import api, { AuthSession, errorMessage, Profile } from "../src/services/api";
 import { isTimeZone } from "../src/services/time";
+import { getAlwaysAnimate, setAlwaysAnimate } from "../src/services/bearPrefs";
 import { clearMealReminders, remindersAvailable, requestReminderPermission, scheduleMealReminders } from "../src/services/reminders";
 import ApiConnectionSettings from "../src/components/ApiConnectionSettings";
 
@@ -58,6 +59,8 @@ export default function SettingsScreen({ session, onProfileChanged, onAccountDel
 	};
 
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
+	const [alwaysAnimate, setAlwaysAnimateState] = useState(false);
+	useEffect(() => { void getAlwaysAnimate().then(setAlwaysAnimateState); }, []);
 	const [timezone, setTimezone] = useState(session.user.timezone);
 
 	const saveTimezone = async () => {
@@ -103,6 +106,16 @@ export default function SettingsScreen({ session, onProfileChanged, onAccountDel
 				<Text style={styles.label}>Meals you aim for each day</Text>
 				<View style={styles.goalRow}>
 					{[1, 2, 3, 4, 5, 6, 7, 8].map((goal) => <Pressable key={goal} onPress={() => void save({ dailyMealGoal: goal })} style={[styles.goal, profile.dailyMealGoal === goal && styles.goalSelected]}><Text style={[styles.goalText, profile.dailyMealGoal === goal && styles.goalTextSelected]}>{goal}</Text></Pressable>)}
+				</View>
+			</View>
+
+			<View style={styles.section}>
+				<View style={styles.settingRow}>
+					<View style={styles.settingCopy}>
+						<Text style={styles.sectionTitle}>Bear animations</Text>
+						<Text style={styles.description}>Your device may ask apps to reduce motion, which pauses the bear's breathing, blinking and idle moves. Turn this on to keep them anyway; tapping the bear always works.</Text>
+					</View>
+					<Switch value={alwaysAnimate} onValueChange={(value) => { setAlwaysAnimateState(value); void setAlwaysAnimate(value); }} accessibilityLabel="Always animate the bear" />
 				</View>
 			</View>
 

@@ -13,22 +13,21 @@ Authoritative requirements stay in `spec.md`; task status stays in `tasks.md`. L
 | 5 User Story 3 (steps, energy, Sudoku, rewards) | Not started, except bear animation T058-T060 and T061 (done), T062 (device validation) open |
 | 6 Polish / performance | Not started (T050-T057) |
 
-## Open bugs (reported by Saga, not yet fixed)
+## Bugs found in manual testing (fixed 2026-10-23, verified in headless Edge against the real app)
 
-1. **Meal saved -> bear reaction and "Log another meal" offer do not work.** After saving a meal the app should go
-   home, the bear should jump/wave with hearts (FR-059), and a "Meal saved. Log another meal" banner should show for
-   seven seconds (FR-011, T024). Neither is seen in manual testing.
-   - Unverified suspicion for the bear: the home screen (and `Bear`) is mounted fresh when the app switches from
-     the meals view back to home, and `Bear` ignores a `feedSignal` that was already incremented before it mounted
-     (`feedMounted` ref starts at the current value in `mobile/src/components/bear/Bear.tsx`). Fix idea: keep the
-     bear mounted, or pass a "fed at" timestamp and play the reaction if it is recent.
-   - Banner cause is not yet found: reproduce first (check the Save request succeeds and `onMealSaved` fires in
-     `mobile/app/meals.tsx`; the banner state lives in `mobile/app/index.tsx`).
-2. **Breathing and blinking look wrong on the web version** (browser-specific? unknown). Both are applied through
-   `matrix()` transforms on SVG groups (`mobile/src/components/bear/pose.ts`, `Part.tsx`); breathing scales the whole
-   `main` group about its bottom edge and blinking squashes `leftEye`/`rightEye`. Need to look at it in the browser
-   (note which browser) and compare with Expo Go. The headless render check used plain SVG and did not exercise
-   react-native-svg on web.
+1. **Meal saved -> bear reaction and "Log another meal" offer.** Two causes:
+   - `mobile/.env` still pointed at an old LAN address (`EXPO_PUBLIC_API_URL`), so requests timed out and no meal saved.
+     The laptop's address changes between networks: update `mobile/.env` (or the app's Connection settings) and restart
+     Expo with `--clear` when it does. Check with `ipconfig` and `curl http://<ip>:3000/health`.
+   - The bear is created fresh when the home screen reappears, so it missed the "fed" signal. It now receives
+     `fedAt` (a timestamp) and plays the jump/wave/hearts if the meal was saved in the last 3 seconds.
+   - Also checked: the seven-second banner shows after a save, disappears, and "Log another meal" opens a cleared form.
+   - Hearts were clipped at the top of the bear's frame; the visible area was enlarged.
+2. **Breathing and blinking missing on web.** Cause: Windows/browser "reduce motion" is on, and the bear (by design,
+   FR-061) pauses breathing, blinking, ear waves and bored moves then. Tap and feed reactions are unaffected.
+   Added Settings -> "Bear animations" switch ("Always animate the bear") that overrides this; FR-061 updated.
+   Verified: with reduce-motion emulated, the bear is still until the switch is on, then breathes and blinks.
+   To change the OS setting instead: Windows Settings -> Accessibility -> Visual effects -> Animation effects.
 
 ## Left in Phase 3 (User Story 1)
 

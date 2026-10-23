@@ -174,7 +174,7 @@ A user checks the home screen to see a bear, food bowl, Sudoku paper, meal progr
 - **FR-058**: After the user has been in the app for a while without interacting with the bear, the bear MUST occasionally perform a bored behavior, chosen at random: waving both arms while bending its knees a few times, or "kicking sand" with small waving motions of lowered arms.
 - **FR-059**: When a meal is saved (the bear is fed), the bear MUST jump and wave, and hearts MUST pop up near it and then disappear.
 - **FR-060**: When the Sudoku entry is selected, the bear MUST perform one of the tap reactions in FR-024.
-- **FR-061**: Bear animations MUST NOT block interaction, MUST NOT overlap in a way that distorts the artwork (a new reaction replaces a running reaction of the same kind), and MUST stop when the home screen is not visible. When the device requests reduced motion, idle and bored animations MUST NOT run.
+- **FR-061**: Bear animations MUST NOT block interaction, MUST NOT overlap in a way that distorts the artwork (a new reaction replaces a running reaction of the same kind), and MUST stop when the home screen is not visible. When the device requests reduced motion, breathing, blinking, ear waves and bored animations MUST NOT run unless the user turns on an "Always animate the bear" setting; tapping the bear and feeding it always play.
 
 ### Key Entities *(include if feature involves data)*
 

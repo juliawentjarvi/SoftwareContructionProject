@@ -5,26 +5,28 @@ import { BearArt } from "./BearArt.generated";
 import { BORED_BEHAVIORS, BearAnimator, Clip, TAP_REACTIONS, blink, earWave, feedJump, hearts } from "./animation";
 import { PoseContext } from "./Part";
 import type { Pose } from "./pose";
+import { getAlwaysAnimate } from "../../services/bearPrefs";
 
 // Visible region: the bear plus room to jump and for hearts to float up.
-const VIEW_BOX = "134 440 813 1100";
-const ASPECT = 813 / 1100;
+const VIEW_BOX = "134 360 813 1180";
+const ASPECT = 813 / 1180;
 const FRAME_MS = 33;
+const FEED_WINDOW_MS = 3000;
 
 const pick = <T,>(items: T[]): T => items[Math.floor(Math.random() * items.length)];
 const between = (min: number, max: number) => min + Math.random() * (max - min);
 
 export type BearProps = {
 	height?: number;
-	/** Increment to play the feed reaction (jump, wave, hearts). */
-	feedSignal?: number;
+	/** Time (ms since epoch) a meal was saved; the feed reaction (jump, wave, hearts) plays once if it is recent, even when the bear mounts just afterwards. */
+	fedAt?: number | null;
 	/** Increment to play one of the tap reactions, e.g. when the game is clicked. */
 	emoteSignal?: number;
 	/** Seconds without interaction before the bear gets bored. */
 	boredAfterSeconds?: number;
 };
 
-export function Bear({ height = 250, feedSignal = 0, emoteSignal = 0, boredAfterSeconds = 30 }: BearProps) {
+export function Bear({ height = 250, fedAt = null, emoteSignal = 0, boredAfterSeconds = 30 }: BearProps) {
 	const animator = useRef(new BearAnimator()).current;
 	const [pose, setPose] = useState<Pose>({});
 	const reduceMotion = useRef(false);
@@ -77,9 +79,11 @@ export function Bear({ height = 250, feedSignal = 0, emoteSignal = 0, boredAfter
 			}
 			schedule(boredLoop, 4, 8);
 		};
-		void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
-			reduceMotion.current = enabled;
-			animator.breathing = !enabled;
+		// Idle animations follow the device's reduce-motion setting unless the user chose to always animate the bear.
+		void Promise.all([AccessibilityInfo.isReduceMotionEnabled(), getAlwaysAnimate()]).then(([deviceReduces, always]) => {
+			if (cancelled) return;
+			reduceMotion.current = deviceReduces && !always;
+			animator.breathing = !reduceMotion.current;
 		}).catch(() => undefined);
 		schedule(blinkLoop, 1, 3);
 		schedule(earLoop, 5, 10);
@@ -87,14 +91,14 @@ export function Bear({ height = 250, feedSignal = 0, emoteSignal = 0, boredAfter
 		return () => { cancelled = true; timers.forEach(clearTimeout); };
 	}, [animator, play, boredAfterSeconds]);
 
-	const feedMounted = useRef(feedSignal);
+	const lastFedAt = useRef<number | null>(null);
 	useEffect(() => {
-		if (feedSignal === feedMounted.current) return;
-		feedMounted.current = feedSignal;
+		if (fedAt === null || fedAt === lastFedAt.current || Date.now() - fedAt > FEED_WINDOW_MS) return;
+		lastFedAt.current = fedAt;
 		interact();
 		play(feedJump());
 		play(hearts());
-	}, [feedSignal, interact, play]);
+	}, [fedAt, interact, play]);
 
 	const emoteMounted = useRef(emoteSignal);
 	useEffect(() => {

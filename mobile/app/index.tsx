@@ -17,7 +17,7 @@ export default function App() {
 	const [view, setView] = useState<AppView>("home");
 	const [progress, setProgress] = useState<ProgressSummary | null>(null);
 	const [error, setError] = useState<string | null>(null);
-	const [feedSignal, setFeedSignal] = useState(0);
+	const [fedAt, setFedAt] = useState<number | null>(null);
 	const [emoteSignal, setEmoteSignal] = useState(0);
 	const [savedOffer, setSavedOffer] = useState(false);
 
@@ -92,7 +92,7 @@ export default function App() {
 				</View>
 			</View>
 
-			{view === "meals" ? <View style={styles.page}><Pressable onPress={() => setView("home")} style={styles.back}><Text style={styles.backText}>‹  Home</Text></Pressable><MealsScreen token={session.accessToken} timezone={session.user.timezone} onMealSaved={() => { setFeedSignal((n) => n + 1); setSavedOffer(true); setView("home"); }} /></View> : null}
+			{view === "meals" ? <View style={styles.page}><Pressable onPress={() => setView("home")} style={styles.back}><Text style={styles.backText}>‹  Home</Text></Pressable><MealsScreen token={session.accessToken} timezone={session.user.timezone} onMealSaved={() => { setFedAt(Date.now()); setSavedOffer(true); setView("home"); }} /></View> : null}
 			{view === "settings" ? <View style={styles.page}><Pressable onPress={() => setView("home")} style={styles.back}><Text style={styles.backText}>‹  Home</Text></Pressable><SettingsScreen session={session} onProfileChanged={updateProfile} onAccountDeleted={() => { setSession(null); setView("home"); }} /></View> : null}
 			{view === "home" ? <ScrollView style={styles.home} contentContainerStyle={styles.homeContent}>
 				{savedOffer ? <View accessibilityRole="alert" style={styles.savedOffer}>
@@ -114,7 +114,7 @@ export default function App() {
 					<View style={styles.sceneTop}><Text style={styles.sceneOverline}>TODAY'S LITTLE CHECK-IN</Text><Text style={styles.sceneDate}>{progress?.date ?? ""}</Text></View>
 					<View style={styles.playArea}>
 						<Pressable onPress={() => setView("meals")} accessibilityRole="button" style={[styles.sceneObject, styles.bowl]}><Text style={styles.objectIcon}>◡</Text><Text style={styles.objectLabel}>Food bowl</Text></Pressable>
-						<View style={styles.bearArea}><Bear height={250} feedSignal={feedSignal} emoteSignal={emoteSignal} /><Text style={styles.bearCaption}>{progress?.goalMet ? "You did enough today." : "I'm here for your next pause."}</Text></View>
+						<View style={styles.bearArea}><Bear height={250} fedAt={fedAt} emoteSignal={emoteSignal} /><Text style={styles.bearCaption}>{progress?.goalMet ? "You did enough today." : "I'm here for your next pause."}</Text></View>
 						<Pressable onPress={() => { setEmoteSignal((n) => n + 1); Alert.alert("Sudoku", "The puzzle game is not implemented yet."); }} accessibilityRole="button" style={[styles.sceneObject, styles.sudoku]}><Text style={styles.sudokuGrid}>□ □ □</Text><Text style={styles.objectLabel}>Sudoku</Text></Pressable>
 					</View>
 					<View style={styles.sceneFoot}><Text style={styles.footText}>{progress?.goalMet ? "Today's meal goal is complete." : `${Math.max(0, mealGoal - mealCount)} meal${mealGoal - mealCount === 1 ? "" : "s"} to reach today's goal.`}</Text></View>
