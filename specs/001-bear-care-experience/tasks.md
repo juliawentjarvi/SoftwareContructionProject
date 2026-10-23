@@ -64,18 +64,18 @@ timezone, and verify neither user can view or change the other's data.
 
 ### Tests for User Story 1
 
-- [ ] T017 [P] [US1] Add registration and login tests in `server/tests/auth.test.ts` for normalized-email uniqueness, invalid input, valid sign-in, and rejection of duplicate accounts.
-- [ ] T018 [P] [US1] Add meal ownership and validation tests in `server/tests/meals.test.ts` for non-empty bounded names, meal type, optional bounded notes, timezone-aware timestamps, and cross-user read/update/delete rejection.
-- [ ] T019 [P] [US1] Add mobile API result tests in `mobile/src/services/api.test.ts` proving failed registration/login/meal writes do not show success and preserve entered form values.
+- [X] T017 [P] [US1] Add registration and login tests in `server/tests/auth.test.ts` for normalized-email uniqueness, invalid input, valid sign-in, and rejection of duplicate accounts.
+- [X] T018 [P] [US1] Add meal ownership and validation tests in `server/tests/meals.test.ts` for non-empty bounded names, meal type, optional bounded notes, timezone-aware timestamps, and cross-user read/update/delete rejection.
+- [X] T019 [P] [US1] Add mobile API result tests in `mobile/src/services/api.test.ts` proving failed registration/login/meal writes do not show success and preserve entered form values.
 
 ### Implementation for User Story 1
 
-- [ ] T020 [US1] Normalize email consistently and enforce unique registration in `server/src/validation.ts`, `server/src/app.ts`, and `server/src/models/user.ts`; preserve the existing `{ "error": { "code": "...", "message": "..." } }` error envelope.
-- [ ] T021 [US1] Align the profile and meal constraints in `server/src/validation.ts` and `server/src/models/user.ts` with `specs/001-bear-care-experience/data-model.md`, including a positive whole-number meal target with no fixed 1–8 ceiling and a valid IANA timezone.
-- [ ] T022 [US1] Verify every meal read, update, and delete in `server/src/app.ts` scopes by both meal ID and authenticated user ID; return no other user's data when a valid foreign meal ID is supplied.
-- [ ] T023 [US1] Implement local date/time entry and timezone display for meal creation and history in `mobile/app/meals.tsx` and `mobile/src/services/api.ts`; ensure the stored instant remains unchanged when the profile timezone changes.
-- [ ] T024 [US1] Implement the seven-second post-save offer to log another meal in `mobile/app/meals.tsx` and `mobile/app/index.tsx`; verify the saved meal persists before the prompt appears.
-- [ ] T025 [US1] Implement confirmed account deletion and signed-out navigation in `mobile/app/settings.tsx`, `mobile/app/index.tsx`, and `server/src/app.ts`; verify deletion removes or detaches the user's owned meals without affecting another account.
+- [X] T020 [US1] Normalize email consistently and enforce unique registration in `server/src/validation.ts`, `server/src/app.ts`, and `server/src/models/user.ts`; preserve the existing `{ "error": { "code": "...", "message": "..." } }` error envelope.
+- [X] T021 [US1] Align the profile and meal constraints in `server/src/validation.ts` and `server/src/models/user.ts` with `specs/001-bear-care-experience/data-model.md`, including a positive whole-number meal target with no fixed 1–8 ceiling and a valid IANA timezone.
+- [X] T022 [US1] Verify every meal read, update, and delete in `server/src/app.ts` scopes by both meal ID and authenticated user ID; return no other user's data when a valid foreign meal ID is supplied.
+- [X] T023 [US1] Implement local date/time entry and timezone display for meal creation and history in `mobile/app/meals.tsx` and `mobile/src/services/api.ts`; ensure the stored instant remains unchanged when the profile timezone changes.
+- [X] T024 [US1] Implement the seven-second post-save offer to log another meal in `mobile/app/meals.tsx` and `mobile/app/index.tsx`; verify the saved meal persists before the prompt appears.
+- [X] T025 [US1] Implement confirmed account deletion and signed-out navigation in `mobile/app/settings.tsx`, `mobile/app/index.tsx`, and `server/src/app.ts`; verify deletion removes or detaches the user's owned meals without affecting another account.
 - [ ] T026 [US1] Implement generic password-reset request and single-use reset behavior in `server/src/validation.ts`, `server/src/app.ts`, `server/src/models/user.ts`, and `mobile/app/login.tsx`; never disclose account existence or return/log reset credentials.
 - [ ] T027 [US1] Run `npm test`, `npm run typecheck`, and `npm run build` from `server/`, then `npm run typecheck` from `mobile/`; verify the independent User Story 1 test criteria.
 
@@ -143,6 +143,14 @@ Verify Sudoku conflict/highlighting/finish behavior and independent reward-point
 - [ ] T047 [US3] Charge the Sudoku start once and award completion reward points idempotently in `server/src/app.ts`, `server/src/models/reward-ledger.ts`, and `mobile/src/services/sudoku.ts`; never double-charge on resume or duplicate completion.
 - [ ] T048 [US3] Implement bear animation, point-funded treats/customization, background/music selection, and mute control in `mobile/app/index.tsx`, `mobile/app/settings.tsx`, and `mobile/src/services/api.ts`; keep mute independent of notifications.
 - [ ] T049 [US3] Run `server/tests/activity.test.ts`, `server/tests/progress.test.ts`, `server/tests/energy.test.ts`, `server/tests/rewards.test.ts`, and `mobile/src/services/sudoku.test.ts`, plus all API/mobile checks; validate energy arithmetic, Sudoku completion, reward idempotency, and two-user ownership independently.
+
+### Bear animation (added from the bear-movements specification update)
+
+- [ ] T058 [US3] Add `mobile/assets/bear/bear.svg` as the bear artwork and a generator `mobile/scripts/generate-bear.mjs` that converts it to `mobile/src/components/bear/BearArt.generated.tsx`, keeping named groups (eyes, ears, arms, legs, hearts) addressable (FR-056).
+- [ ] T059 [US3] Implement the animation engine and `Bear` component in `mobile/src/components/bear/` with tap reactions (arm wave, surprised eyebrows, arms over eyes), blinking, random ear waves, bored behaviors, feed jump-and-hearts, and reduced-motion handling (FR-024, FR-057–FR-061).
+- [ ] T060 [US3] Replace the text bear in `mobile/app/index.tsx` with `Bear`; trigger the feed reaction when a meal is saved and a reaction when Sudoku is selected (FR-059, FR-060).
+- [ ] T061 [P] [US3] Add engine tests in `mobile/src/components/bear/animation.test.ts` for pose blending, reaction replacement, and reduced-motion behavior.
+- [ ] T062 [US3] Validate every bear behavior on a phone in Expo Go and in a desktop browser; record results in `specs/001-bear-care-experience/quickstart.md` (SC-021, SC-022).
 
 **Checkpoint**: Energy values match the examples and formula; board validation handles every Sudoku
 constraint; gameplay charges and rewards cannot duplicate; missing step information never grants

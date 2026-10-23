@@ -124,3 +124,37 @@ describe("network failures", () => {
 		});
 	});
 });
+
+describe("failed writes are never reported as success", () => {
+	const serverError = (status: number, code: string) => new Response(JSON.stringify({ error: { code, message: `${code} message` } }), { status });
+
+	it("returns the server's error for a duplicate registration instead of a session", async () => {
+		vi.mocked(fetch).mockResolvedValue(serverError(409, "ACCOUNT_EXISTS"));
+
+		const result = await api.register("a@example.test", "a-long-password", "Bear");
+
+		expect(result).toMatchObject({ ok: false, status: 409, body: { error: { code: "ACCOUNT_EXISTS" } } });
+		expect(api.errorMessage(result.body as Parameters<typeof api.errorMessage>[0], "fallback")).toBe("ACCOUNT_EXISTS message");
+	});
+
+	it("returns a failure for rejected credentials and an unreachable server on login", async () => {
+		vi.mocked(fetch).mockResolvedValueOnce(serverError(401, "INVALID_CREDENTIALS")).mockRejectedValueOnce(new TypeError("offline"));
+
+		expect(await api.login("a@example.test", "wrong")).toMatchObject({ ok: false, status: 401 });
+		expect(await api.login("a@example.test", "wrong")).toMatchObject({ ok: false, status: 0 });
+	});
+
+	it("returns a failure for a rejected or interrupted meal save, sends each write once, and uses the same body on a manual retry", async () => {
+		vi.mocked(fetch).mockResolvedValueOnce(serverError(400, "INVALID_REQUEST")).mockRejectedValueOnce(new TypeError("offline"));
+
+		const rejected = await api.createMeal("token", "Soup", "lunch", "notes", "2026-10-01T08:00:00+02:00");
+		const interrupted = await api.createMeal("token", "Soup", "lunch", "notes", "2026-10-01T08:00:00+02:00");
+
+		expect(rejected.ok).toBe(false);
+		expect(interrupted.ok).toBe(false);
+		expect(fetch).toHaveBeenCalledTimes(2);
+		const bodies = vi.mocked(fetch).mock.calls.map(([, init]) => init?.body);
+		expect(bodies[0]).toBe(bodies[1]);
+		expect(JSON.parse(bodies[0] as string)).toMatchObject({ name: "Soup", notes: "notes", eatenAt: "2026-10-01T08:00:00+02:00" });
+	});
+});

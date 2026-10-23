@@ -2,18 +2,6 @@ import { z } from 'zod';
 
 const mealTypes = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
 
-export const registerSchema = z.object({
-  email: z.string().trim().email().max(254),
-  password: z.string().min(10).refine((value) => Buffer.byteLength(value, 'utf8') <= 72, 'Password must be at most 72 bytes'),
-  displayName: z.string().trim().min(1).max(60),
-  timezone: z.string().trim().min(1).max(100).optional(),
-});
-
-export const loginSchema = z.object({
-  email: z.string().trim().email().max(254),
-  password: z.string().min(1).refine((value) => Buffer.byteLength(value, 'utf8') <= 72, 'Password must be at most 72 bytes'),
-});
-
 function isTimeZone(value: string): boolean {
   try {
     new Intl.DateTimeFormat('en', { timeZone: value });
@@ -23,10 +11,26 @@ function isTimeZone(value: string): boolean {
   }
 }
 
+const timezoneField = z.string().trim().min(1).max(100).refine(isTimeZone, 'Use a valid IANA timezone');
+// Emails are compared case-insensitively and without surrounding whitespace everywhere they are accepted.
+const emailField = z.string().trim().toLowerCase().email().max(254);
+
+export const registerSchema = z.object({
+  email: emailField,
+  password: z.string().min(10).refine((value) => Buffer.byteLength(value, 'utf8') <= 72, 'Password must be at most 72 bytes'),
+  displayName: z.string().trim().min(1).max(60),
+  timezone: timezoneField.optional(),
+});
+
+export const loginSchema = z.object({
+  email: emailField,
+  password: z.string().min(1).refine((value) => Buffer.byteLength(value, 'utf8') <= 72, 'Password must be at most 72 bytes'),
+});
+
 export const profilePatchSchema = z.object({
   displayName: z.string().trim().min(1).max(60).optional(),
-  timezone: z.string().trim().min(1).max(100).refine(isTimeZone, 'Use a valid IANA timezone').optional(),
-  dailyMealGoal: z.number().int().min(1).max(8).optional(),
+  timezone: timezoneField.optional(),
+  dailyMealGoal: z.number().int().min(1).optional(),
   notificationsEnabled: z.boolean().optional(),
   reminderTimes: z.array(z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)).max(8).optional(),
 }).refine((value) => Object.keys(value).length > 0, 'Provide at least one profile field');

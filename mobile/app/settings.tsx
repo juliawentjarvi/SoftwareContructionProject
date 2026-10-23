@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import api, { AuthSession, errorMessage, Profile } from "../src/services/api";
+import { isTimeZone } from "../src/services/time";
 import { clearMealReminders, remindersAvailable, requestReminderPermission, scheduleMealReminders } from "../src/services/reminders";
 import ApiConnectionSettings from "../src/components/ApiConnectionSettings";
 
@@ -17,7 +18,7 @@ export default function SettingsScreen({ session, onProfileChanged, onAccountDel
 	const [error, setError] = useState<string | null>(null);
 	const [isSaving, setIsSaving] = useState(false);
 
-	const save = async (changes: Partial<Pick<Profile, "displayName" | "dailyMealGoal" | "notificationsEnabled" | "reminderTimes">>) => {
+	const save = async (changes: Partial<Pick<Profile, "displayName" | "timezone" | "dailyMealGoal" | "notificationsEnabled" | "reminderTimes">>) => {
 		setIsSaving(true);
 		setError(null);
 		const result = await api.updateProfile(session.accessToken, changes);
@@ -56,26 +57,31 @@ export default function SettingsScreen({ session, onProfileChanged, onAccountDel
 		if (updated?.notificationsEnabled) await scheduleMealReminders(updated.reminderTimes);
 	};
 
-	const deleteAccount = () => Alert.alert(
-		"Delete account?",
-		"Your profile and meal log will be permanently deleted.",
-		[
-			{ text: "Cancel", style: "cancel" },
-			{
-				text: "Delete account",
-				style: "destructive",
-				onPress: async () => {
-					const result = await api.deleteAccount(session.accessToken);
-					if (result.ok) {
-						await clearMealReminders();
-						onAccountDeleted();
-					} else {
-						setError(errorMessage(result.body, "The account couldn't be deleted."));
-					}
-				},
-			},
-		],
-	);
+	const [confirmingDelete, setConfirmingDelete] = useState(false);
+	const [timezone, setTimezone] = useState(session.user.timezone);
+
+	const saveTimezone = async () => {
+		const value = timezone.trim();
+		if (!isTimeZone(value)) {
+			setError("Use a valid timezone name, such as Europe/Stockholm.");
+			return;
+		}
+		const updated = await save({ timezone: value });
+		if (updated) setTimezone(updated.timezone);
+	};
+
+	const deleteAccount = async () => {
+		setIsSaving(true);
+		const result = await api.deleteAccount(session.accessToken);
+		setIsSaving(false);
+		if (result.ok) {
+			await clearMealReminders();
+			onAccountDeleted();
+		} else {
+			setConfirmingDelete(false);
+			setError(errorMessage(result.body, "The account couldn't be deleted."));
+		}
+	};
 
 	return (
 		<ScrollView style={styles.screen} contentContainerStyle={styles.content}>
@@ -92,6 +98,8 @@ export default function SettingsScreen({ session, onProfileChanged, onAccountDel
 				<Text style={styles.sectionTitle}>Profile</Text>
 				<Text style={styles.label}>Display name</Text>
 				<TextInput accessibilityLabel="Display name" style={styles.input} value={profile.displayName} onChangeText={(displayName) => setProfile({ ...profile, displayName })} onBlur={() => void save({ displayName: profile.displayName })} maxLength={60} />
+				<Text style={styles.label}>Timezone (meal times are shown in this zone)</Text>
+				<TextInput accessibilityLabel="Timezone" style={styles.input} value={timezone} onChangeText={setTimezone} onBlur={() => void saveTimezone()} autoCapitalize="none" autoCorrect={false} placeholder="Europe/Stockholm" maxLength={100} />
 				<Text style={styles.label}>Meals you aim for each day</Text>
 				<View style={styles.goalRow}>
 					{[1, 2, 3, 4, 5, 6, 7, 8].map((goal) => <Pressable key={goal} onPress={() => void save({ dailyMealGoal: goal })} style={[styles.goal, profile.dailyMealGoal === goal && styles.goalSelected]}><Text style={[styles.goalText, profile.dailyMealGoal === goal && styles.goalTextSelected]}>{goal}</Text></Pressable>)}
@@ -118,7 +126,13 @@ export default function SettingsScreen({ session, onProfileChanged, onAccountDel
 			{isSaving ? <ActivityIndicator color="#315b49" /> : null}
 			<View style={styles.dangerSection}>
 				<Text style={styles.sectionTitle}>Account</Text>
-				<Pressable accessibilityRole="button" onPress={deleteAccount} style={styles.deleteButton}><Text style={styles.deleteText}>Delete account</Text></Pressable>
+				{confirmingDelete ? <View accessibilityRole="alert">
+					<Text style={styles.description}>Delete this account? Your profile and meal log will be permanently deleted. This cannot be undone.</Text>
+					<View style={styles.confirmRow}>
+						<Pressable accessibilityRole="button" onPress={() => setConfirmingDelete(false)} disabled={isSaving} style={styles.secondaryButton}><Text style={styles.secondaryButtonText}>Keep my account</Text></Pressable>
+						<Pressable accessibilityRole="button" accessibilityLabel="Confirm account deletion" onPress={() => void deleteAccount()} disabled={isSaving} style={styles.deleteButton}><Text style={styles.deleteText}>Yes, delete everything</Text></Pressable>
+					</View>
+				</View> : <Pressable accessibilityRole="button" accessibilityLabel="Delete account" onPress={() => setConfirmingDelete(true)} style={styles.deleteLink}><Text style={styles.deleteLinkText}>Delete account</Text></Pressable>}
 			</View>
 		</ScrollView>
 	);
@@ -149,6 +163,9 @@ const styles = StyleSheet.create({
 	footnote: { color: "#7b8780", fontSize: 12, marginTop: 12, lineHeight: 17 },
 	error: { color: "#a6372d", marginVertical: 12 },
 	dangerSection: { borderTopWidth: 1, borderColor: "#dce5dc", paddingTop: 18 },
-	deleteButton: { minHeight: 46, borderWidth: 1, borderColor: "#a6372d", borderRadius: 6, justifyContent: "center", alignItems: "center" },
+	confirmRow: { flexDirection: "row", gap: 10, marginTop: 12, flexWrap: "wrap" },
+	deleteLink: { alignSelf: "flex-start", paddingVertical: 8 },
+	deleteLinkText: { color: "#a6372d", fontSize: 12, textDecorationLine: "underline" },
+	deleteButton: { paddingHorizontal: 14, minHeight: 46, borderWidth: 1, borderColor: "#a6372d", borderRadius: 6, justifyContent: "center", alignItems: "center" },
 	deleteText: { color: "#a6372d", fontWeight: "700" },
 });

@@ -60,6 +60,22 @@ users and their records are cleaned up after each test.
   and malformed successful responses now produce explicit failures, and interrupted writes are
   not automatically retried.
 
+### User Story 1 slice 1 record (T017-T022)
+
+- 2026-10-23: tests written first; 5 new tests failed as expected (meal target above 8, email and timezone
+  normalization in the schemas, `GET /api/meals/:id`, case-insensitive sign-in). After the fixes: API 35/35 passed
+  against `bear_buddy_test` (TEST_MONGODB_URI derived from the configured cluster, not stored), API typecheck and
+  build passed, mobile 15/15 passed and typecheck passed. Auth routes are rate limited per app instance, so each
+  auth test builds its own app.
+
+### User Story 1 slice 2 record (T023-T025)
+
+- 2026-10-23: new `mobile/src/services/time.test.ts` (6 tests) and `server/tests/account-deletion.test.ts` (1 test). Final
+  results: API 36/36 (database-backed tests against `bear_buddy_test`), API typecheck passed, mobile 21/21, mobile
+  typecheck passed. Not yet manually checked: the seven-second prompt and in-page deletion confirmation in Expo Go and a
+  desktop browser. `Alert.alert` does nothing on the web, so deletion confirmation is now rendered in the page.
+- Registration now sends the device timezone (previously every account defaulted to UTC).
+
 ## API reachability and endpoint switching
 
 1. Start the API from `server/` using `npm run dev`; verify `GET /health`.

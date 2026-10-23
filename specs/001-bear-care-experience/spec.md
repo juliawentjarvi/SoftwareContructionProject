@@ -69,7 +69,7 @@ A user checks the home screen to see a bear, food bowl, Sudoku paper, meal progr
 4. **Given** the user has not reached their daily meal target for two consecutive completed days, **When** they view the bear, **Then** its playful health presentation decreases without presenting itself as a real health assessment.
 5. **Given** a user opens the Sudoku game, **When** they complete a game, **Then** they receive points that can be spent on available treats or customization options.
 6. **Given** a user has enough points for an available option, **When** they unlock it, **Then** they can apply the option to the bear or app environment.
-7. **Given** a user taps the bear, **When** the bear responds, **Then** it waves, moves an arm toward its stomach, bends or bounces, and raises and lowers its eyebrows.
+7. **Given** a user taps the bear, **When** the bear responds, **Then** it performs one of these reactions, chosen at random: the right arm waves; the eyebrows lift and fall in a surprised expression; or both arms move in front of the eyes.
 8. **Given** a user prefers a quiet experience, **When** they use the mute toggle, **Then** app music and sound effects are muted without changing meal records or reminder preferences.
 9. **Given** a user records physical activity or step progress, **When** they view their log, **Then** their activity and step entries appear with their dates.
 10. **Given** a user has not entered step progress, **When** they view daily goals and their streak, **Then** the app does not show the step target as met or award a qualifying streak day.
@@ -81,6 +81,11 @@ A user checks the home screen to see a bear, food bowl, Sudoku paper, meal progr
 16. **Given** a Sudoku board is active, **When** a digit has already been entered once in each of the nine 3x3 boxes, **Then** that digit's number button is muted and cannot be selected.
 17. **Given** a user places a digit that duplicates another entry in the same row or 3x3 box, **When** the board validates the entry, **Then** the conflicting entry is shown in red. Standard Sudoku column conflicts are also shown in red.
 18. **Given** every Sudoku cell is filled, **When** the board checks the completed solution, **Then** it reports a win if the solution is correct or reports that an entry is incorrect and offers a way to continue correcting the current board.
+19. **Given** the user is on the home screen with no interaction, **When** time passes, **Then** the bear blinks at irregular intervals and, at random moments, waves one randomly chosen ear (left or right).
+20. **Given** the user has been in the app for a while without interacting with the bear, **When** the bear becomes "bored", **Then** it performs one of: waving both arms while bending its knees a few times, or "kicking sand" with small waving motions of lowered arms.
+21. **Given** the user saves a meal, **When** they return to the home screen, **Then** the bear jumps and waves, and hearts pop up around it and disappear.
+22. **Given** the user taps the Sudoku entry, **When** the entry is activated, **Then** the bear performs one of the tap reactions from scenario 7.
+23. **Given** the device is set to reduce motion, **When** the home screen is shown, **Then** idle and bored animations do not run and any reaction is brief and non-looping.
 
 ### Edge Cases
 
@@ -132,7 +137,7 @@ A user checks the home screen to see a bear, food bowl, Sudoku paper, meal progr
 - **FR-021**: The app MUST provide a playful bear health state that decreases when the user misses their meal target on two consecutive completed days, without presenting the state as medical information.
 - **FR-022**: The app MUST provide a heart-shaped streak indicator that progresses through a pleasant rainbow gradient for consecutive days when the meal and step targets are met.
 - **FR-023**: The streak heart MUST animate with a heartbeat when the user enters the app.
-- **FR-024**: The bear MUST perform the described wave, stomach-reaching arm movement, bounce, and surprised eyebrow movement when tapped.
+- **FR-024**: When the bear is tapped it MUST perform one randomly chosen reaction: the right arm waves, the eyebrows lift and fall in a surprised expression, or both arms move in front of the eyes.
 - **FR-025**: The app MUST offer Sudoku as an optional game and award points for completing a game.
 - **FR-026**: The app MUST allow points to unlock and obtain available bear treats, appearance options, and environment themes.
 - **FR-027**: The app MUST let users choose available backgrounds and music, and provide a mute control for app music and sound effects.
@@ -164,6 +169,12 @@ A user checks the home screen to see a bear, food bowl, Sudoku paper, meal progr
 - **FR-053**: Repeated navigation and normal use MUST NOT cause unbounded memory growth.
 - **FR-054**: Backend queries and responses MUST be measured under the defined expected workload; optimization MUST target measured bottlenecks without changing user-visible behavior.
 - **FR-055**: Performance verification MUST record test conditions, response-time percentiles, request failure rate, resource usage, device/runtime, and any unmet targets or platform limitations.
+- **FR-056**: The bear MUST be rendered from the supplied SVG artwork (`mobile/assets/bear/bear.svg`), animated by moving its named parts (such as `leftEye`, `rightEye`, `eyebrows`, `leftEar`, `rightEar`, `leftArm`, `rightArm`, `leftLeg`, `rightLeg`, `Body`, `head`, and `heart_emotes`) independently, on both mobile and web.
+- **FR-057**: The bear MUST follow basic rules of autonomy: while the home screen is visible it MUST blink at irregular intervals and MUST at random intervals wave one of its ears, chosen at random between left and right.
+- **FR-058**: After the user has been in the app for a while without interacting with the bear, the bear MUST occasionally perform a bored behavior, chosen at random: waving both arms while bending its knees a few times, or "kicking sand" with small waving motions of lowered arms.
+- **FR-059**: When a meal is saved (the bear is fed), the bear MUST jump and wave, and hearts MUST pop up near it and then disappear.
+- **FR-060**: When the Sudoku entry is selected, the bear MUST perform one of the tap reactions in FR-024.
+- **FR-061**: Bear animations MUST NOT block interaction, MUST NOT overlap in a way that distorts the artwork (a new reaction replaces a running reaction of the same kind), and MUST stop when the home screen is not visible. When the device requests reduced motion, idle and bored animations MUST NOT run.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -200,6 +211,8 @@ A user checks the home screen to see a bear, food bowl, Sudoku paper, meal progr
 - **SC-018**: In every tested network failure scenario, failed operations are not shown as successful, form input remains available where applicable, stale cached content is identified, and retrying a single-action write creates at most one resulting record or action.
 - **SC-019**: Concurrent stale edits to the same field are detected in every conflict test; the latest saved value remains intact and the rejected editor can refresh and retry. Concurrent edits to different fields or records both persist.
 - **SC-020**: On representative physical devices and in Expo Go where supported, the recorded test report includes the device/runtime, network conditions, latency percentiles, failure rate, resource observations, and unsupported capabilities.
+- **SC-021**: In testing on a supported phone (Expo Go) and a desktop browser, each bear behavior (tap reaction variants, blink, ear wave, both bored behaviors, feed jump with hearts, Sudoku reaction) can be triggered or observed within five minutes of normal use, and the bear returns to its resting pose afterwards.
+- **SC-022**: During bear animation, interactions elsewhere on the home screen still give feedback within 100 ms (SC-014).
 
 ## Assumptions
 
@@ -225,3 +238,5 @@ A user checks the home screen to see a bear, food bowl, Sudoku paper, meal progr
 - The app's mute control applies to in-app music and sound effects, not device notification sounds.
 - Account recovery is available only when the user can access the email address associated with the account.
 - Food and activity entries are private personal records; the app does not provide dietary or medical advice.
+- The bear's autonomous behaviors are playful and random, not tied to health or meal data; their frequency is tuned for testing (blink every few seconds, ear wave every ~8–20 s, bored behavior after ~30 s of no interaction) and may be adjusted without changing this specification.
+- Feeding means saving a meal entry; the feed reaction plays when the user returns to the home screen after saving.

@@ -4,6 +4,7 @@ import LoginScreen from "./login";
 import RegisterScreen from "./register";
 import MealsScreen from "./meals";
 import SettingsScreen from "./settings";
+import { Bear } from "../src/components/bear/Bear";
 import api, { AuthSession, errorMessage, Profile, ProgressSummary } from "../src/services/api";
 import { clearMealReminders, remindersAvailable, requestReminderPermission, scheduleMealReminders } from "../src/services/reminders";
 
@@ -16,6 +17,9 @@ export default function App() {
 	const [view, setView] = useState<AppView>("home");
 	const [progress, setProgress] = useState<ProgressSummary | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	const [feedSignal, setFeedSignal] = useState(0);
+	const [emoteSignal, setEmoteSignal] = useState(0);
+	const [savedOffer, setSavedOffer] = useState(false);
 
 	const authenticate = async (nextSession: AuthSession) => {
 		setSession(nextSession);
@@ -33,6 +37,13 @@ export default function App() {
 		});
 		return () => { active = false; };
 	}, [session, view]);
+
+	// The "log another meal" offer after a save disappears on its own after seven seconds.
+	useEffect(() => {
+		if (!savedOffer) return;
+		const timer = setTimeout(() => setSavedOffer(false), 7000);
+		return () => clearTimeout(timer);
+	}, [savedOffer]);
 
 	const toggleReminders = async (enabled: boolean) => {
 		if (!session) return;
@@ -81,9 +92,13 @@ export default function App() {
 				</View>
 			</View>
 
-			{view === "meals" ? <View style={styles.page}><Pressable onPress={() => setView("home")} style={styles.back}><Text style={styles.backText}>‹  Home</Text></Pressable><MealsScreen token={session.accessToken} /></View> : null}
+			{view === "meals" ? <View style={styles.page}><Pressable onPress={() => setView("home")} style={styles.back}><Text style={styles.backText}>‹  Home</Text></Pressable><MealsScreen token={session.accessToken} timezone={session.user.timezone} onMealSaved={() => { setFeedSignal((n) => n + 1); setSavedOffer(true); setView("home"); }} /></View> : null}
 			{view === "settings" ? <View style={styles.page}><Pressable onPress={() => setView("home")} style={styles.back}><Text style={styles.backText}>‹  Home</Text></Pressable><SettingsScreen session={session} onProfileChanged={updateProfile} onAccountDeleted={() => { setSession(null); setView("home"); }} /></View> : null}
 			{view === "home" ? <ScrollView style={styles.home} contentContainerStyle={styles.homeContent}>
+				{savedOffer ? <View accessibilityRole="alert" style={styles.savedOffer}>
+					<Text style={styles.savedText}>Meal saved.</Text>
+					<Pressable accessibilityRole="button" onPress={() => { setSavedOffer(false); setView("meals"); }}><Text style={styles.savedAction}>Log another meal</Text></Pressable>
+				</View> : null}
 				<View style={styles.statusRow}>
 					<View style={styles.status}>
 						<View style={styles.statusHeading}><Text style={styles.statusLabel}>ENERGY</Text><Text style={styles.statusValue}>{mealCount}/{mealGoal}</Text></View>
@@ -99,8 +114,8 @@ export default function App() {
 					<View style={styles.sceneTop}><Text style={styles.sceneOverline}>TODAY'S LITTLE CHECK-IN</Text><Text style={styles.sceneDate}>{progress?.date ?? ""}</Text></View>
 					<View style={styles.playArea}>
 						<Pressable onPress={() => setView("meals")} accessibilityRole="button" style={[styles.sceneObject, styles.bowl]}><Text style={styles.objectIcon}>◡</Text><Text style={styles.objectLabel}>Food bowl</Text></Pressable>
-						<View style={styles.bearArea}><Text style={styles.bearFace}>{progress?.goalMet ? "ʕ•ᴥ•ʔ" : "ʕ·ᴥ·ʔ"}</Text><Text style={styles.bearCaption}>{progress?.goalMet ? "You did enough today." : "I'm here for your next pause."}</Text></View>
-						<Pressable onPress={() => Alert.alert("Sudoku", "The puzzle game is not implemented yet.")} accessibilityRole="button" style={[styles.sceneObject, styles.sudoku]}><Text style={styles.sudokuGrid}>□ □ □</Text><Text style={styles.objectLabel}>Sudoku</Text></Pressable>
+						<View style={styles.bearArea}><Bear height={250} feedSignal={feedSignal} emoteSignal={emoteSignal} /><Text style={styles.bearCaption}>{progress?.goalMet ? "You did enough today." : "I'm here for your next pause."}</Text></View>
+						<Pressable onPress={() => { setEmoteSignal((n) => n + 1); Alert.alert("Sudoku", "The puzzle game is not implemented yet."); }} accessibilityRole="button" style={[styles.sceneObject, styles.sudoku]}><Text style={styles.sudokuGrid}>□ □ □</Text><Text style={styles.objectLabel}>Sudoku</Text></Pressable>
 					</View>
 					<View style={styles.sceneFoot}><Text style={styles.footText}>{progress?.goalMet ? "Today's meal goal is complete." : `${Math.max(0, mealGoal - mealCount)} meal${mealGoal - mealCount === 1 ? "" : "s"} to reach today's goal.`}</Text></View>
 				</View>
@@ -132,6 +147,9 @@ const styles = StyleSheet.create({
 	backText: { color: "#315b49", fontSize: 15, fontWeight: "700" },
 	home: { flex: 1 },
 	homeContent: { width: "100%", maxWidth: 820, alignSelf: "center", paddingHorizontal: 20, paddingVertical: 18, paddingBottom: 36 },
+	savedOffer: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#e1eee5", borderRadius: 6, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 8 },
+	savedText: { color: "#315b49", fontWeight: "700", fontSize: 13 },
+	savedAction: { color: "#a34b36", fontWeight: "800", fontSize: 13 },
 	statusRow: { flexDirection: "row", gap: 16 },
 	status: { flex: 1, paddingVertical: 8 },
 	statusHeading: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginBottom: 7 },
@@ -145,7 +163,7 @@ const styles = StyleSheet.create({
 	sceneTop: { paddingHorizontal: 18, paddingTop: 16, flexDirection: "row", justifyContent: "space-between" },
 	sceneOverline: { color: "#58665e", fontSize: 10, fontWeight: "800", letterSpacing: 1 },
 	sceneDate: { color: "#58665e", fontSize: 11 },
-	playArea: { minHeight: 250, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 4 },
+	playArea: { minHeight: 270, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 4 },
 	sceneObject: { width: 82, minHeight: 80, backgroundColor: "#fff", borderRadius: 8, justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: "#e1e7dd" },
 	bowl: { transform: [{ rotate: "-4deg" }] },
 	sudoku: { transform: [{ rotate: "3deg" }] },
@@ -153,7 +171,6 @@ const styles = StyleSheet.create({
 	objectLabel: { color: "#58665e", fontSize: 11, fontWeight: "700" },
 	sudokuGrid: { color: "#315b49", fontSize: 16, lineHeight: 30, fontWeight: "700" },
 	bearArea: { flex: 1, alignItems: "center", justifyContent: "center", minWidth: 120 },
-	bearFace: { color: "#315b49", fontSize: 46, fontWeight: "700" },
 	bearCaption: { color: "#58665e", fontSize: 12, marginTop: 8, textAlign: "center" },
 	sceneFoot: { borderTopWidth: 1, borderColor: "#d7e1d4", paddingHorizontal: 18, paddingVertical: 11 },
 	footText: { color: "#315b49", fontSize: 12, fontWeight: "600" },

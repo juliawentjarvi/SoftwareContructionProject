@@ -80,19 +80,12 @@ export function createApp(options: AppOptions) {
 
   app.post('/api/auth/register', authLimiter, async (request, response) => {
     const input = validated(registerSchema, request.body);
-    const timezone = input.timezone ?? 'UTC';
-    try {
-      new Intl.DateTimeFormat('en', { timeZone: timezone });
-    } catch {
-      throw new ApiError(400, 'INVALID_TIMEZONE', 'Use a valid IANA timezone');
-    }
-
     const passwordHash = await bcrypt.hash(input.password, 12);
     const user = await User.create({
-      email: input.email.toLowerCase(),
+      email: input.email,
       passwordHash,
       displayName: input.displayName,
-      timezone,
+      timezone: input.timezone ?? 'UTC',
     });
     response.status(201).json({
       user: publicUser(user),
@@ -103,7 +96,7 @@ export function createApp(options: AppOptions) {
 
   app.post('/api/auth/login', authLimiter, async (request, response) => {
     const input = validated(loginSchema, request.body);
-    const user = await User.findOne({ email: input.email.toLowerCase() }).select('+passwordHash');
+    const user = await User.findOne({ email: input.email }).select('+passwordHash');
     const passwordMatches = user ? await bcrypt.compare(input.password, user.passwordHash) : false;
     if (!user || !passwordMatches) throw new ApiError(401, 'INVALID_CREDENTIALS', 'Email or password is incorrect');
 
@@ -159,6 +152,12 @@ export function createApp(options: AppOptions) {
     const input = validated(mealCreateSchema, request.body);
     const meal = await MealEntry.create({ ...input, userId: request.auth!.userId });
     response.status(201).json({ meal });
+  });
+  app.get('/api/meals/:mealId', async (request, response) => {
+    const mealId = requireObjectId(request.params.mealId!);
+    const meal = await MealEntry.findOne({ _id: mealId, userId: request.auth!.userId }).lean();
+    if (!meal) throw new ApiError(404, 'NOT_FOUND', 'Meal entry not found');
+    response.json({ meal });
   });
   app.patch('/api/meals/:mealId', async (request, response) => {
     const mealId = requireObjectId(request.params.mealId!);

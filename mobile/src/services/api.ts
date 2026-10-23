@@ -1,5 +1,6 @@
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { deviceTimeZone } from "./time";
 
 const defaultApiBase = Platform.OS === "android"
   ? "http://10.0.2.2:3000/api"
@@ -175,10 +176,10 @@ async function request<T>(path: string, opts: RequestInit = {}): Promise<ApiResu
   return { ok: false, status: response.status, body: errorBody };
 }
 
-export function register(email: string, password: string, displayName: string) {
+export function register(email: string, password: string, displayName: string, timezone = deviceTimeZone()) {
   return request<AuthSession>("/auth/register", {
     method: "POST",
-    body: JSON.stringify({ email, password, displayName }),
+    body: JSON.stringify({ email, password, displayName, timezone }),
   });
 }
 
@@ -190,7 +191,7 @@ export function getProfile(accessToken: string) {
   return request<{ user: Profile }>("/profile", { headers: { Authorization: `Bearer ${accessToken}` } });
 }
 
-export function updateProfile(accessToken: string, changes: Partial<Pick<Profile, "displayName" | "dailyMealGoal" | "notificationsEnabled" | "reminderTimes">>) {
+export function updateProfile(accessToken: string, changes: Partial<Pick<Profile, "displayName" | "timezone" | "dailyMealGoal" | "notificationsEnabled" | "reminderTimes">>) {
   return request<{ user: Profile }>("/profile", {
     method: "PATCH",
     headers: { Authorization: `Bearer ${accessToken}` },
