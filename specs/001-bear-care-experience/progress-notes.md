@@ -8,13 +8,14 @@ Authoritative requirements stay in `spec.md`; task status stays in `tasks.md`. L
 | Phase | State |
 |---|---|
 | 1 Setup, 2 Stabilization | Done (T001-T016) |
-| 3 User Story 1 (account + meals) | T017-T025 done; **T026, T027 left** (see below) |
+| 3 User Story 1 (account + meals) | Done (T017-T027); only manual phone/desktop checks remain |
 | 4 User Story 2 (reminders) | Not started (T028-T035) |
 | 5 User Story 3 (steps, energy, Sudoku, rewards) | Not started, except bear animation T058-T060 and T061 (done), T062 (device validation) open |
 | 6 Polish / performance | Not started (T050-T057) |
 
 ## Bugs found in manual testing (fixed 2026-10-23, verified in headless Edge against the real app)
 
+0. **Server address is now automatic in development** (2026-10-24): the app derives the API address from the host that serves it (page host on web, Expo dev-server host in Expo Go), port 3000; saved Connection-settings address overrides it, "Use automatic address" clears that; `EXPO_PUBLIC_API_URL` is only the fallback for builds without a dev server. Server allows dev web origins on :8081/:19006 outside production. Verified on web via localhost and the LAN IP; **not yet verified in Expo Go on a phone**. Replaces the "update mobile/.env" advice below.
 1. **Meal saved -> bear reaction and "Log another meal" offer.** Two causes:
    - `mobile/.env` still pointed at an old LAN address (`EXPO_PUBLIC_API_URL`), so requests timed out and no meal saved.
      The laptop's address changes between networks: update `mobile/.env` (or the app's Connection settings) and restart
@@ -29,18 +30,15 @@ Authoritative requirements stay in `spec.md`; task status stays in `tasks.md`. L
    Verified: with reduce-motion emulated, the bear is still until the switch is on, then breathes and blinks.
    To change the OS setting instead: Windows Settings -> Accessibility -> Visual effects -> Animation effects.
 
-## Left in Phase 3 (User Story 1)
+## Phase 3 (User Story 1) wrap-up
 
-- **T026** Password reset: generic request + single-use, time-limited reset; never reveal whether an account exists and
-  never return/log the reset credential (FR-005). Needs a decision on how the reset link/code is delivered (no email
-  service exists yet).
-- **T027** Run `npm test`, `npm run typecheck`, `npm run build` in `server/`, `npm run typecheck` in `mobile/`; check the
-  User Story 1 independent test; mark the checkpoint.
-- **FR-007 UI**: the meal-target picker in `mobile/app/settings.tsx` is still buttons 1-8. The server accepts any positive
-  whole number; the picker should too.
-- Manual checks not yet done: seven-second prompt and in-page deletion confirmation on phone (Expo Go) and desktop
-  browser; record in `quickstart.md`.
+- Password reset (T026) is built: hashed single-use 30-minute code; delivered by SMTP (`SMTP_URL`) or, in development
+  only, written to `server/.dev-outbox/`. **Decision for later**: choose a real mail provider before any deployment.
+- Meal target (FR-007) is now a number field (any whole number from 1), no longer buttons 1-8.
+- Still to do by hand, on phone (Expo Go) and desktop browser: seven-second banner, deletion confirmation, password reset,
+  timezone display. Record results in `quickstart.md`.
 - Account deletion on the server uses a MongoDB transaction (works on Atlas; needs a replica set locally).
+- **Next: Phase 4 (reminders, T028-T035).**
 
 ## How we work (agreed)
 

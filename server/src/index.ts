@@ -2,11 +2,14 @@ import { setServers } from 'node:dns';
 import mongoose from 'mongoose';
 import { allowedOrigins, config, mongodbDnsServers } from './config.js';
 import { createApp } from './app.js';
+import { createPasswordResetSender } from './mailer.js';
 
 const app = createApp({
   jwtSecret: config.JWT_SECRET,
   jwtExpiresIn: config.JWT_EXPIRES_IN,
   allowedOrigins,
+  allowDevOrigins: config.NODE_ENV !== 'production',
+  sendPasswordReset: createPasswordResetSender({ brevoApiKey: config.BREVO_API_KEY, smtpUrl: config.SMTP_URL, mailFrom: config.MAIL_FROM, production: config.NODE_ENV === 'production' }),
 });
 
 try {

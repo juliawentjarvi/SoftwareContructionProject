@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { createHash, randomBytes } from 'node:crypto';
 import cors from 'cors';
 import { rateLimit } from 'express-rate-limit';
 import express, { type ErrorRequestHandler, type Request, type Response } from 'express';
@@ -12,6 +13,8 @@ import { requireAuth } from './middleware/auth.js';
 import { summarizeDailyCounts, dateKeyAt } from './progress.js';
 import {
   loginSchema,
+  passwordResetConfirmSchema,
+  passwordResetRequestSchema,
   mealCreateSchema,
   mealPatchSchema,
   mealsQuerySchema,
@@ -23,7 +26,16 @@ interface AppOptions {
   jwtSecret: string;
   jwtExpiresIn: string;
   allowedOrigins: string[];
+  /** Development only: also accept browsers loaded from any host's Expo web dev server (port 8081/19006), so the web app works from another device on the network. */
+  allowDevOrigins?: boolean;
+  /** Delivers a password-reset code to an account's email. Never called for unknown emails. */
+  sendPasswordReset?: (email: string, token: string) => Promise<void>;
 }
+
+const RESET_TOKEN_LIFETIME_MS = 30 * 60 * 1000;
+const hashResetToken = (token: string) => createHash('sha256').update(token).digest('hex');
+
+const DEV_WEB_ORIGIN = /^https?:\/\/[^/]+:(8081|19006)$/;
 
 class ApiError extends Error {
   constructor(readonly status: number, readonly code: string, message: string) {
@@ -73,7 +85,9 @@ export function createApp(options: AppOptions) {
 
   app.disable('x-powered-by');
   app.use(helmet());
-  app.use(cors({ origin: (origin, callback) => callback(null, !origin || options.allowedOrigins.includes(origin)) }));
+  app.use(cors({
+    origin: (origin, callback) => callback(null, !origin || options.allowedOrigins.includes(origin) || (options.allowDevOrigins === true && DEV_WEB_ORIGIN.test(origin))),
+  }));
   app.use(express.json({ limit: '16kb' }));
 
   app.get('/health', (_request, response) => response.json({ status: 'ok' }));
@@ -105,6 +119,33 @@ export function createApp(options: AppOptions) {
       accessToken: bearerToken(user._id.toString(), options.jwtSecret, options.jwtExpiresIn),
       tokenType: 'Bearer',
     });
+  });
+
+  // The response never reveals whether the email belongs to an account, and the code is only ever sent to that email.
+  app.post('/api/auth/password-reset/request', authLimiter, async (request, response) => {
+    const { email } = validated(passwordResetRequestSchema, request.body);
+    const token = randomBytes(32).toString('base64url');
+    const user = await User.findOneAndUpdate(
+      { email },
+      { passwordResetHash: hashResetToken(token), passwordResetExpires: new Date(Date.now() + RESET_TOKEN_LIFETIME_MS) },
+    );
+    if (user && options.sendPasswordReset) {
+      // Not awaited so response time does not depend on whether an account exists.
+      void options.sendPasswordReset(email, token).catch((error: unknown) => console.error('Password reset message could not be delivered:', error instanceof Error ? error.message : 'unknown error'));
+    }
+    response.status(202).json({ message: 'If an account exists for that email, a reset code has been sent.' });
+  });
+
+  app.post('/api/auth/password-reset/confirm', authLimiter, async (request, response) => {
+    const { token, password } = validated(passwordResetConfirmSchema, request.body);
+    const passwordHash = await bcrypt.hash(password, 12);
+    // Atomic: the matching, unexpired token is consumed by exactly one request.
+    const user = await User.findOneAndUpdate(
+      { passwordResetHash: hashResetToken(token), passwordResetExpires: { $gt: new Date() } },
+      { passwordHash, $unset: { passwordResetHash: '', passwordResetExpires: '' } },
+    );
+    if (!user) throw new ApiError(400, 'INVALID_RESET_TOKEN', 'This reset code is invalid or has expired');
+    response.status(204).end();
   });
 
   app.get('/api/auth/me', authenticate, async (request, response) => {

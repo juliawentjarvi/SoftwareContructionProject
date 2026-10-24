@@ -76,8 +76,8 @@ timezone, and verify neither user can view or change the other's data.
 - [X] T023 [US1] Implement local date/time entry and timezone display for meal creation and history in `mobile/app/meals.tsx` and `mobile/src/services/api.ts`; ensure the stored instant remains unchanged when the profile timezone changes.
 - [X] T024 [US1] Implement the seven-second post-save offer to log another meal in `mobile/app/meals.tsx` and `mobile/app/index.tsx`; verify the saved meal persists before the prompt appears.
 - [X] T025 [US1] Implement confirmed account deletion and signed-out navigation in `mobile/app/settings.tsx`, `mobile/app/index.tsx`, and `server/src/app.ts`; verify deletion removes or detaches the user's owned meals without affecting another account.
-- [ ] T026 [US1] Implement generic password-reset request and single-use reset behavior in `server/src/validation.ts`, `server/src/app.ts`, `server/src/models/user.ts`, and `mobile/app/login.tsx`; never disclose account existence or return/log reset credentials.
-- [ ] T027 [US1] Run `npm test`, `npm run typecheck`, and `npm run build` from `server/`, then `npm run typecheck` from `mobile/`; verify the independent User Story 1 test criteria.
+- [X] T026 [US1] Implement generic password-reset request and single-use reset behavior in `server/src/validation.ts`, `server/src/app.ts`, `server/src/models/user.ts`, and `mobile/app/login.tsx`; never disclose account existence or return/log reset credentials.
+- [X] T027 [US1] Run `npm test`, `npm run typecheck`, and `npm run build` from `server/`, then `npm run typecheck` from `mobile/`; verify the independent User Story 1 test criteria.
 
 **Checkpoint**: Registration, login, profile, timezone-aware meal history, past-meal entry, duplicate
 email rejection, account deletion, and recovery behavior pass their specified tests without

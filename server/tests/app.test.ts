@@ -38,3 +38,15 @@ describe('API boundary', () => {
     });
   });
 });
+describe('browser origins', () => {
+  const origin = 'http://192.168.1.23:8081';
+
+  it('accepts the Expo web dev server from another host only when dev origins are enabled', async () => {
+    const dev = createApp({ jwtSecret: 'test-secret-at-least-32-characters-long', jwtExpiresIn: '7d', allowedOrigins: [], allowDevOrigins: true });
+    const strict = createApp({ jwtSecret: 'test-secret-at-least-32-characters-long', jwtExpiresIn: '7d', allowedOrigins: [] });
+
+    expect((await request(dev).get('/health').set('Origin', origin)).headers['access-control-allow-origin']).toBe(origin);
+    expect((await request(strict).get('/health').set('Origin', origin)).headers['access-control-allow-origin']).toBeUndefined();
+    expect((await request(dev).get('/health').set('Origin', 'http://evil.example:3001')).headers['access-control-allow-origin']).toBeUndefined();
+  });
+});

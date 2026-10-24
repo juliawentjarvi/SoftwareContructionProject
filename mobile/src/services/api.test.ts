@@ -12,6 +12,7 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
 }));
 
 vi.mock("react-native", () => ({ Platform: { OS: "web" } }));
+vi.mock("expo-constants", () => ({ default: { expoConfig: null } }));
 
 let api: typeof import("./api");
 
@@ -156,5 +157,30 @@ describe("failed writes are never reported as success", () => {
 		const bodies = vi.mocked(fetch).mock.calls.map(([, init]) => init?.body);
 		expect(bodies[0]).toBe(bodies[1]);
 		expect(JSON.parse(bodies[0] as string)).toMatchObject({ name: "Soup", notes: "notes", eatenAt: "2026-10-01T08:00:00+02:00" });
+	});
+});
+
+describe("password reset requests", () => {
+	it("posts the email and token to the reset routes and treats 202/204 as success", async () => {
+		vi.mocked(fetch)
+			.mockResolvedValueOnce(new Response(JSON.stringify({ message: "sent" }), { status: 202 }))
+			.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+		expect(await api.requestPasswordReset("a@example.test")).toMatchObject({ ok: true, status: 202 });
+		expect(await api.confirmPasswordReset(" CODE ", "a-new-long-password")).toMatchObject({ ok: true, status: 204 });
+
+		const [[firstUrl], [secondUrl, secondInit]] = vi.mocked(fetch).mock.calls;
+		expect(String(firstUrl)).toMatch(/\/auth\/password-reset\/request$/);
+		expect(String(secondUrl)).toMatch(/\/auth\/password-reset\/confirm$/);
+		expect(JSON.parse(secondInit?.body as string)).toEqual({ token: "CODE", password: "a-new-long-password" });
+	});
+
+	it("reports an invalid code or an unreachable server as a failure", async () => {
+		vi.mocked(fetch)
+			.mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: "INVALID_RESET_TOKEN", message: "bad code" } }), { status: 400 }))
+			.mockRejectedValueOnce(new TypeError("offline"));
+
+		expect(await api.confirmPasswordReset("x".repeat(30), "a-new-long-password")).toMatchObject({ ok: false, status: 400 });
+		expect(await api.requestPasswordReset("a@example.test")).toMatchObject({ ok: false, status: 0 });
 	});
 });

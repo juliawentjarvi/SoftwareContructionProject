@@ -1,12 +1,32 @@
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
+import { apiBaseFromHost } from "./devHost";
 import { deviceTimeZone } from "./time";
 
 const defaultApiBase = Platform.OS === "android"
   ? "http://10.0.2.2:3000/api"
   : "http://localhost:3000/api";
 const API_BASE_STORAGE_KEY = "bear-care-api-base";
-let apiBase = normalizeApiBase(process.env.EXPO_PUBLIC_API_URL || defaultApiBase);
+
+/**
+ * Address used when the user has not saved one. In development the API is assumed to run on the machine that
+ * serves the app (the page's host on web, the Expo dev server's host in Expo Go), so nothing needs configuring when
+ * the network changes. Builds without a dev server use EXPO_PUBLIC_API_URL, then the local default.
+ */
+function automaticApiBase() {
+  const dev = typeof __DEV__ !== "undefined" && __DEV__;
+  if (dev) {
+    const host = Platform.OS === "web"
+      ? (typeof window !== "undefined" ? window.location.hostname : null)
+      : Constants.expoConfig?.hostUri ?? (Constants as { expoGoConfig?: { debuggerHost?: string } }).expoGoConfig?.debuggerHost;
+    const detected = apiBaseFromHost(host);
+    if (detected) return detected;
+  }
+  return process.env.EXPO_PUBLIC_API_URL || defaultApiBase;
+}
+
+let apiBase = normalizeApiBase(automaticApiBase());
 let apiBaseReady: Promise<void> | null = null;
 
 function normalizeApiBase(value: string) {
@@ -36,6 +56,18 @@ async function loadApiBase() {
 
 export async function getApiBaseUrl() {
   return loadApiBase();
+}
+
+/** Forget a saved server address and go back to the automatic one. */
+export async function useAutomaticApiBase(): Promise<string> {
+  try {
+    await AsyncStorage.removeItem(API_BASE_STORAGE_KEY);
+  } catch {
+    // Fall through: the in-memory address is still reset for this session.
+  }
+  apiBase = normalizeApiBase(automaticApiBase());
+  apiBaseReady = Promise.resolve();
+  return apiBase;
 }
 
 export async function testAndSetApiBaseUrl(value: string): Promise<{ ok: true; baseUrl: string } | { ok: false; message: string }> {
@@ -187,6 +219,14 @@ export function login(email: string, password: string) {
   return request<AuthSession>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
 }
 
+export function requestPasswordReset(email: string) {
+  return request<{ message: string }>("/auth/password-reset/request", { method: "POST", body: JSON.stringify({ email }) });
+}
+
+export function confirmPasswordReset(token: string, password: string) {
+  return request<null>("/auth/password-reset/confirm", { method: "POST", body: JSON.stringify({ token: token.trim(), password }) });
+}
+
 export function getProfile(accessToken: string) {
   return request<{ user: Profile }>("/profile", { headers: { Authorization: `Bearer ${accessToken}` } });
 }
@@ -232,4 +272,4 @@ export function errorMessage(error: ApiError, fallback: string) {
   return error.error?.message || error.message || fallback;
 }
 
-export default { register, login, getProfile, updateProfile, getMeals, createMeal, deleteMeal, getProgress, deleteAccount };
+export default { register, login, requestPasswordReset, confirmPasswordReset, getProfile, updateProfile, getMeals, createMeal, deleteMeal, getProgress, deleteAccount };

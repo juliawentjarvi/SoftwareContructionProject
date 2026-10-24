@@ -236,7 +236,7 @@ A user checks the home screen to see a bear, food bowl, Sudoku paper, meal progr
 - The 30-minute stability scenario includes at least 500 common screen transitions and repeated network failure/recovery cycles; resource growth is assessed after initial warm-up on the same device and runtime.
 - Reminder frequency and selected times are user-controlled. A one-hour follow-up reminder is not sent unless the user selects a schedule that includes it.
 - The app's mute control applies to in-app music and sound effects, not device notification sounds.
-- Account recovery is available only when the user can access the email address associated with the account.
+- Account recovery is available only when the user can access the email address associated with the account. A password-reset request is answered identically whether or not the account exists; the single-use code (valid 30 minutes, stored only as a hash, replaced by any newer request) is delivered by email when the server has SMTP configured. On a development machine without SMTP the message is written to a git-ignored `server/.dev-outbox/` file so the flow can be tried; in production without SMTP nothing is delivered. The code is never returned by the API or written to logs.
 - Food and activity entries are private personal records; the app does not provide dietary or medical advice.
 - The bear's autonomous behaviors are playful and random, not tied to health or meal data; their frequency is tuned for testing (blink every few seconds, ear wave every ~8–20 s, bored behavior after ~30 s of no interaction) and may be adjusted without changing this specification.
 - Feeding means saving a meal entry; the feed reaction plays when the user returns to the home screen after saving.

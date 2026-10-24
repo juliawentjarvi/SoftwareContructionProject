@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { getApiBaseUrl, testAndSetApiBaseUrl } from "../services/api";
+import { getApiBaseUrl, testAndSetApiBaseUrl, useAutomaticApiBase } from "../services/api";
 
 export default function ApiConnectionSettings() {
 	const [expanded, setExpanded] = useState(false);
@@ -23,13 +23,19 @@ export default function ApiConnectionSettings() {
 		setIsChecking(false);
 	};
 
+	const reset = async () => {
+		setMessage(null);
+		setServerUrl(await useAutomaticApiBase());
+		setMessage("Connected automatically: the app now looks for the server on the computer that is serving it.");
+	};
+
 	return (
 		<View style={styles.container}>
 			<Pressable accessibilityRole="button" onPress={() => setExpanded(!expanded)}>
 				<Text style={styles.toggle}>{expanded ? "Hide connection settings" : "Connection settings"}</Text>
 			</Pressable>
 			{expanded ? <View style={styles.form}>
-				<Text style={styles.description}>Use a stable HTTPS server address to connect on different networks. For a private server, use its LAN address only when your device is on that network or VPN.</Text>
+				<Text style={styles.description}>Normally nothing is needed here: while testing, the app finds the server on the computer that serves it. Use a stable HTTPS server address to connect on different networks. For a private server, use its LAN address only when your device is on that network or VPN.</Text>
 				<Text style={styles.label}>API server URL</Text>
 				<TextInput
 					accessibilityLabel="API server URL"
@@ -44,6 +50,7 @@ export default function ApiConnectionSettings() {
 				<Pressable accessibilityRole="button" disabled={isChecking} onPress={() => void save()} style={[styles.button, isChecking && styles.disabled]}>
 					{isChecking ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Test and save</Text>}
 				</Pressable>
+				<Pressable accessibilityRole="button" onPress={() => void reset()} style={styles.link}><Text style={styles.linkText}>Use automatic address</Text></Pressable>
 				{message ? <Text accessibilityRole="alert" style={message.startsWith("Connected") ? styles.success : styles.error}>{message}</Text> : null}
 			</View> : null}
 		</View>
@@ -60,6 +67,8 @@ const styles = StyleSheet.create({
 	button: { minHeight: 44, backgroundColor: "#315b49", borderRadius: 6, justifyContent: "center", alignItems: "center" },
 	buttonText: { color: "#fff", fontWeight: "700" },
 	disabled: { opacity: 0.7 },
+	link: { alignSelf: "flex-start", paddingVertical: 10 },
+	linkText: { color: "#315b49", fontSize: 13, textDecorationLine: "underline" },
 	success: { color: "#315b49", fontSize: 13, marginTop: 10 },
 	error: { color: "#a6372d", fontSize: 13, marginTop: 10 },
 });

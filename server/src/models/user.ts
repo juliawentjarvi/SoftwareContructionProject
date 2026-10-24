@@ -8,6 +8,8 @@ const userSchema = new Schema(
     timezone: { type: String, required: true, default: 'UTC', maxlength: 100 },
     dailyMealGoal: { type: Number, required: true, default: 3, min: 1, validate: Number.isSafeInteger },
     notificationsEnabled: { type: Boolean, required: true, default: false },
+    passwordResetHash: { type: String, select: false },
+    passwordResetExpires: { type: Date, select: false },
     reminderTimes: { type: [String], required: true, default: ['09:00', '13:00', '19:00'] },
   },
   { timestamps: true },

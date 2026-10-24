@@ -11,3 +11,6 @@ coverage/
 *.swp
 .DS_Store
 Thumbs.db
+
+# Local password-reset messages written by the development mailer
+server/.dev-outbox/

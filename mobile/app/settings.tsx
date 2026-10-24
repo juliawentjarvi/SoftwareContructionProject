@@ -58,6 +58,20 @@ export default function SettingsScreen({ session, onProfileChanged, onAccountDel
 		if (updated?.notificationsEnabled) await scheduleMealReminders(updated.reminderTimes);
 	};
 
+	const [goalText, setGoalText] = useState(String(session.user.dailyMealGoal));
+
+	const saveGoal = async () => {
+		const value = Number(goalText);
+		if (!/^\d+$/.test(goalText.trim()) || !Number.isSafeInteger(value) || value < 1) {
+			setError("Enter a whole number of meals per day, 1 or more.");
+			setGoalText(String(profile.dailyMealGoal));
+			return;
+		}
+		if (value === profile.dailyMealGoal) return;
+		const updated = await save({ dailyMealGoal: value });
+		setGoalText(String(updated?.dailyMealGoal ?? profile.dailyMealGoal));
+	};
+
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
 	const [alwaysAnimate, setAlwaysAnimateState] = useState(false);
 	useEffect(() => { void getAlwaysAnimate().then(setAlwaysAnimateState); }, []);
@@ -104,9 +118,7 @@ export default function SettingsScreen({ session, onProfileChanged, onAccountDel
 				<Text style={styles.label}>Timezone (meal times are shown in this zone)</Text>
 				<TextInput accessibilityLabel="Timezone" style={styles.input} value={timezone} onChangeText={setTimezone} onBlur={() => void saveTimezone()} autoCapitalize="none" autoCorrect={false} placeholder="Europe/Stockholm" maxLength={100} />
 				<Text style={styles.label}>Meals you aim for each day</Text>
-				<View style={styles.goalRow}>
-					{[1, 2, 3, 4, 5, 6, 7, 8].map((goal) => <Pressable key={goal} onPress={() => void save({ dailyMealGoal: goal })} style={[styles.goal, profile.dailyMealGoal === goal && styles.goalSelected]}><Text style={[styles.goalText, profile.dailyMealGoal === goal && styles.goalTextSelected]}>{goal}</Text></Pressable>)}
-				</View>
+				<TextInput accessibilityLabel="Meals per day" style={[styles.input, styles.goalInput]} value={goalText} onChangeText={setGoalText} onBlur={() => void saveGoal()} onSubmitEditing={() => void saveGoal()} keyboardType="number-pad" maxLength={3} />
 			</View>
 
 			<View style={styles.section}>
@@ -161,6 +173,7 @@ const styles = StyleSheet.create({
 	sectionTitle: { color: "#1d2923", fontSize: 17, fontWeight: "700", marginBottom: 12 },
 	label: { color: "#58665e", fontSize: 12, marginBottom: 6 },
 	input: { minHeight: 46, borderWidth: 1, borderColor: "#cbd6cd", borderRadius: 6, paddingHorizontal: 12, color: "#1d2923", marginBottom: 14, fontSize: 15, backgroundColor: "#fff" },
+	goalInput: { width: 90 },
 	goalRow: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
 	goal: { width: 38, height: 38, borderWidth: 1, borderColor: "#cbd6cd", borderRadius: 6, alignItems: "center", justifyContent: "center", backgroundColor: "#fff" },
 	goalSelected: { backgroundColor: "#315b49", borderColor: "#315b49" },

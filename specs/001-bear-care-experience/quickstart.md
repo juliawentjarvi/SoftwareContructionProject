@@ -76,6 +76,16 @@ users and their records are cleaned up after each test.
   desktop browser. `Alert.alert` does nothing on the web, so deletion confirmation is now rendered in the page.
 - Registration now sends the device timezone (previously every account defaulted to UTC).
 
+### User Story 1 slice 3 record (T026-T027)
+
+- 2026-10-24: password reset (request/confirm, hashed single-use 30-minute code, mailer with SMTP or development
+  outbox), meal-target field without the 1-8 ceiling, automatic API address in development. API 44/44 (database-backed
+  tests against `bear_buddy_test`), API typecheck and build passed, mobile 25/25 and typecheck passed. Walked through in a
+  headless Edge browser against the real API: forgot password -> code from the outbox -> new password -> sign in; a meal
+  target of 312 saved. Expo Go on a phone not yet verified.
+- User Story 1 checkpoint: registration, sign-in, profile, timezone-aware meal history, past-meal entry, duplicate
+  email rejection, account deletion and recovery pass their tests.
+
 ## API reachability and endpoint switching
 
 1. Start the API from `server/` using `npm run dev`; verify `GET /health`.

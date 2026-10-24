@@ -9,6 +9,11 @@ const environmentSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('7d'),
   ALLOWED_ORIGINS: z.string().default('http://localhost:8081'),
   MONGODB_DNS_SERVERS: z.string().default(''),
+  // Optional: SMTP connection URL (e.g. smtps://user:pass@smtp.example.com) used to email password-reset codes.
+  // Optional: Brevo transactional email API key (https://app.brevo.com/settings/keys/api). MAIL_FROM must be a sender verified in Brevo.
+  BREVO_API_KEY: z.string().optional(),
+  SMTP_URL: z.string().optional(),
+  MAIL_FROM: z.string().default('Bear Care <no-reply@bearcare.invalid>'),
 });
 
 export const config = environmentSchema.parse(process.env);

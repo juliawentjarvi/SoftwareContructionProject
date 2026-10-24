@@ -22,6 +22,13 @@ export const registerSchema = z.object({
   timezone: timezoneField.optional(),
 });
 
+export const passwordResetRequestSchema = z.object({ email: emailField });
+
+export const passwordResetConfirmSchema = z.object({
+  token: z.string().trim().min(20).max(200),
+  password: z.string().min(10).refine((value) => Buffer.byteLength(value, 'utf8') <= 72, 'Password must be at most 72 bytes'),
+});
+
 export const loginSchema = z.object({
   email: emailField,
   password: z.string().min(1).refine((value) => Buffer.byteLength(value, 'utf8') <= 72, 'Password must be at most 72 bytes'),
