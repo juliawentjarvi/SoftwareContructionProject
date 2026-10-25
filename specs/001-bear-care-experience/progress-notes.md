@@ -9,9 +9,9 @@ Authoritative requirements stay in `spec.md`; task status stays in `tasks.md`. L
 |---|---|
 | 1 Setup, 2 Stabilization | Done (T001-T016) |
 | 3 User Story 1 (account + meals) | Done (T017-T027); only manual phone/desktop checks remain |
-| 7 Increment 2 / User Story 4 (polish, honest settings) | Specified, planned, tasked (T063-T084); T071/T072 code done, rest open |
+| 7 Increment 2 / User Story 4 (polish, honest settings) | Done in code and checked in a browser (T063-T083 except T071 phone check); **left: T084 and T088 phone checks**; staying signed in added (FR-070) |
 | 4 User Story 2 (reminders) | T028, T029, T031-T034 done; **left: T030 (screen-level tests), T035 (device checks, see `notifications-setup.md`)** |
-| 5 User Story 3 (steps, energy, Sudoku, rewards) | Not started, except bear animation T058-T060 and T061 (done), T062 (device validation) open |
+| 5 User Story 3 (steps, energy, Sudoku, rewards) | Bear animation done (T058-T061); steps, activity log and energy points done (T036, T037, T040-T044); streak, bear health and Sudoku with rewards earned are done (T038, T045-T047); **left: reward spending and customization (T039, T048), T049 checks, T062 device check, the heart-shaped rainbow streak indicator (FR-022/023)** |
 | 6 Polish / performance | Not started (T050-T057) |
 
 ## Bugs found in manual testing (fixed 2026-10-23, verified in headless Edge against the real app)
@@ -58,3 +58,7 @@ Authoritative requirements stay in `spec.md`; task status stays in `tasks.md`. L
   app under Connection settings.
 - Bear artwork: `mobile/assets/bear/bear.svg`; rebuild the component after editing it with `npm run generate:bear` in
   `mobile/`. Animations are defined in `mobile/src/components/bear/animation.ts`.
+
+## Decisions
+
+- Streak rule (T045), decided 2026-10-25: a day qualifies on meals, and on steps too only when a step target is set.

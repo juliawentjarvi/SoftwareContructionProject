@@ -9,6 +9,7 @@ const app = createApp({
   jwtExpiresIn: config.JWT_EXPIRES_IN,
   allowedOrigins,
   allowDevOrigins: config.NODE_ENV !== 'production',
+  passwordResetEnabled: config.PASSWORD_RESET_ENABLED,
   sendPasswordReset: createPasswordResetSender({ brevoApiKey: config.BREVO_API_KEY, smtpUrl: config.SMTP_URL, mailFrom: config.MAIL_FROM, production: config.NODE_ENV === 'production' }),
 });
 

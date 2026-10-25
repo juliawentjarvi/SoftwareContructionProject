@@ -2,7 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { setServers } from 'node:dns';
 import mongoose, { type Types } from 'mongoose';
 import 'dotenv/config';
+import { ActivityEntry } from '../src/models/activity-entry.js';
 import { MealEntry } from '../src/models/meal-entry.js';
+import { SudokuGame } from '../src/models/sudoku-game.js';
 import { User } from '../src/models/user.js';
 
 export interface TestIdentity {
@@ -52,6 +54,8 @@ export function configureTestMongoDns(): void {
 export async function cleanTestAccounts(userIds: Types.ObjectId[]): Promise<void> {
   if (userIds.length === 0) return;
   await MealEntry.deleteMany({ userId: { $in: userIds } });
+  await ActivityEntry.deleteMany({ userId: { $in: userIds } });
+  await SudokuGame.deleteMany({ userId: { $in: userIds } });
   await User.deleteMany({ _id: { $in: userIds } });
 }
 

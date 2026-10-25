@@ -184,3 +184,34 @@ describe("password reset requests", () => {
 		expect(await api.requestPasswordReset("a@example.test")).toMatchObject({ ok: false, status: 0 });
 	});
 });
+
+describe("registration timezone", () => {
+	it("sends the device timezone with the new account", async () => {
+		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ user: {}, accessToken: "t" }), { status: 201 }));
+		await api.register("a@example.test", "a-long-password", "Bear");
+		const body = JSON.parse(vi.mocked(fetch).mock.calls[0]![1]!.body as string);
+		expect(body.timezone).toEqual(expect.any(String));
+		expect(() => new Intl.DateTimeFormat("en", { timeZone: body.timezone })).not.toThrow();
+	});
+});
+
+describe("activity requests", () => {
+	it("sends entries to the activities routes and treats a failed save as a failure", async () => {
+		vi.mocked(fetch)
+			.mockResolvedValueOnce(new Response(JSON.stringify({ activity: { _id: "1" } }), { status: 201 }))
+			.mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: "INVALID_REQUEST", message: "bad" } }), { status: 400 }))
+			.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+		const saved = await api.createActivity("token", { type: "Walk", occurredAt: "2026-10-25T07:00:00.000Z", stepCount: 4200 });
+		const failed = await api.createActivity("token", { type: "", occurredAt: "2026-10-25T07:00:00.000Z" });
+		const deleted = await api.deleteActivity("token", "abc");
+
+		expect(saved.ok).toBe(true);
+		expect(failed).toMatchObject({ ok: false, status: 400 });
+		expect(deleted.ok).toBe(true);
+		const calls = vi.mocked(fetch).mock.calls;
+		expect(String(calls[0]![0])).toMatch(/\/activities$/);
+		expect(JSON.parse(calls[0]![1]!.body as string)).toMatchObject({ type: "Walk", stepCount: 4200 });
+		expect(String(calls[2]![0])).toMatch(/\/activities\/abc$/);
+	});
+});

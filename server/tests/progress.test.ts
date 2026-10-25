@@ -25,7 +25,7 @@ describe('meal progress', () => {
 
     expect(summary.currentStreakDays).toBe(3);
     expect(summary.goalMet).toBe(false);
-    expect(summary.lastSevenDays.at(-1)).toEqual({ date: '2026-10-09', mealCount: 1, goalMet: false });
+    expect(summary.lastSevenDays.at(-1)).toMatchObject({ date: '2026-10-09', mealCount: 1, goalMet: false, steps: null, energyPoints: 10 });
   });
 
   it('returns zero streak after a missed day', () => {

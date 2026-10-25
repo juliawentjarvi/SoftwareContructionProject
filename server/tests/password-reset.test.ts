@@ -15,7 +15,16 @@ beforeEach(() => {
     jwtSecret: 'test-secret-at-least-32-characters-long',
     jwtExpiresIn: '7d',
     allowedOrigins: [],
+    passwordResetEnabled: true,
     sendPasswordReset: async (email, token) => { sent.push({ email, token }); },
+  });
+});
+
+describe('password reset is switched off by default', () => {
+  it('answers 404 for both routes unless it is enabled', async () => {
+    const off = createApp({ jwtSecret: 'test-secret-at-least-32-characters-long', jwtExpiresIn: '7d', allowedOrigins: [] });
+    expect((await request(off).post('/api/auth/password-reset/request').send({ email: 'a@example.test' })).status).toBe(404);
+    expect((await request(off).post('/api/auth/password-reset/confirm').send({ token: 'x'.repeat(30), password: 'a-long-enough-password' })).status).toBe(404);
   });
 });
 

@@ -11,6 +11,7 @@ import {
 	View,
 } from "react-native";
 import api, { AuthSession, errorMessage } from "../src/services/api";
+import { PASSWORD_SAFEKEEPING_NOTICE } from "../src/services/copy";
 import ApiConnectionSettings from "../src/components/ApiConnectionSettings";
 
 interface RegisterScreenProps {
@@ -116,6 +117,7 @@ export default function RegisterScreen({ onAuthenticated, onSignIn }: RegisterSc
 						accessibilityLabel="Confirm password"
 						onSubmitEditing={handleRegister}
 					/>
+					<Text accessibilityLabel="Password safekeeping notice" style={styles.notice}>{PASSWORD_SAFEKEEPING_NOTICE}</Text>
 					{error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
 					<Pressable
 						style={({ pressed }) => [styles.submit, pressed && !isSubmitting && styles.submitPressed, isSubmitting && styles.submitDisabled]}
@@ -140,6 +142,7 @@ export default function RegisterScreen({ onAuthenticated, onSignIn }: RegisterSc
 }
 
 const styles = StyleSheet.create({
+	notice: { color: "#58665e", fontSize: 13, lineHeight: 19, backgroundColor: "#fff6e3", borderRadius: 6, padding: 12, marginBottom: 12 },
 	screen: { flex: 1, backgroundColor: "#eef3ed" },
 	content: { flexGrow: 1, justifyContent: "center", paddingHorizontal: 24, paddingVertical: 36 },
 	brand: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 28 },

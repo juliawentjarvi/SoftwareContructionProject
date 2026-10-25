@@ -136,3 +136,30 @@ under the expected-load test and verify there are no cross-user reads or uninten
 - New accounts: `dailyMealGoal` 3 and reminders 08:00, 12:30, 18:30 (previously 09:00, 13:00, 19:00).
 - Sign-out has no endpoint (client-side only); the token expires on its own.
 - Timezone updates arrive through the same `PATCH /api/profile` as `{ "timezone": "<IANA name>" }`.
+
+## Phase 5 slice 1 additions (2026-10-25)
+
+- `PATCH /api/profile` accepts `stepTarget` (whole number 1 to 1,000,000, or `null` for "not set"); profile responses include
+  `stepTarget` (`null` when not set).
+- `/api/activities` as described above: `type` (1 to 60 characters), `occurredAt` (ISO time with offset), optional
+  `stepCount` (whole number 0 to 1,000,000; absent means "no step information", `0` is a real value; `null` on PATCH clears it),
+  optional `notes` (up to 280 characters). Same list parameters as meals (`from`, `to`, `limit`).
+- `GET /api/progress` now also returns, for today: `steps` (`null` when no step entry exists), `stepTarget`, `stepsMet` (never
+  true without a target or without step data) and `energy` `{ points, target, fill }` (points: +10 per meal, +5 per full 1,000
+  steps, -5 per Sudoku start; target: 10 per planned meal; fill: 0 to 100, empty while negative). Each entry of
+  `lastSevenDays` also has `steps` and `energyPoints`. Streak rules are unchanged (meals only).
+
+## Phase 5 slice 2 additions (2026-10-25)
+
+- **Streak and health in `GET /api/progress`**: `currentStreakDays` counts consecutive days on which the meal target was
+  met and, when `stepTarget` is set, the step target too (a day without step data then does not qualify); `lastSevenDays[].qualifies`
+  shows each day's result. `bearHealth` is `"low"` after two completed days below the meal target (never for days before the
+  account existed) and `"good"` again as soon as today's meal target is met.
+- **`POST /api/sudoku/games`** `{ "gameId": "<uuid made by the app>" }` -> `201` for a new game, `200` for a repeat of the same id.
+  Starting a game costs 5 energy, counted from the game's start time on the user's local day, **once per game id**
+  (repeats, retries and resuming never charge again).
+- **`POST /api/sudoku/games/{gameId}/complete`** -> `{ "rewardPointsAwarded", "points" }`; the first completion awards 10
+  reward points, later ones award 0; `404` for an unknown game or another user's game.
+- **`GET /api/rewards`** -> `{ "points" }`, the reward balance. Reward points and energy are separate; neither changes the other.
+- The puzzle itself is made and checked on the phone; the server records only start and completion (it does not verify the
+  solution), which is acceptable for a private wellness app but would need a server-held puzzle if rewards ever had real value.

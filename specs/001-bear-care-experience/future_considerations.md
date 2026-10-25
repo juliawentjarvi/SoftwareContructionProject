@@ -126,3 +126,65 @@ Captured in the specification as User Story 4 (FR-062 to FR-069, SC-023 to SC-02
 tasks T063 to T084 in `tasks.md`. Summary of what was found: choppy breathing on web, animate setting should be on/off,
 log out needed, timezone should be automatic, reminders should match the meal count, daily goal bar problem, remove
 "forgot password" with a safekeeping notice, honest reminder switch, bear-head app icon, remove the unused `backend/` folder.
+
+## 4. The removed `backend/` folder
+
+`backend/` (an early alternative API: auth, meal and middleware code; empty placeholders for bear, activity, settings and an
+energy service) was deleted on 2026-10-25 because `server/` replaced it and nothing used it. It is still in Git history:
+`git show 9d0155f:backend/src/server.ts` (last commit that touched it). When Phase 5 builds activity, energy and rewards,
+build them in `server/`; the empty placeholders held no code worth recovering.
+
+## 5. Logging meals and other functions offline (airplane mode)
+
+**Status: not built, postponed.** The current rule in the specification is deliberately the opposite: offline use is limited
+to viewing data that was already loaded, and new or changed records are **not** queued (FR-047, FR-048, FR-049). A write that
+fails is reported as failed, the typed values stay in the form, and nothing is sent later behind the user's back. Doing
+offline logging means changing those requirements first (run `/speckit-specify`), then planning and tasking it.
+
+### What happens today in airplane mode
+
+- The app on launch with a stored sign-in shows "Can't reach the Bear Care server" with "Try again"; the person stays signed in but
+  cannot get past that screen (nothing is cached to show instead).
+- Already signed in and in the app: logging a meal, deleting one, changing settings or reading the goal bar fails with a clear
+  message; entered meal text stays in the form for another try.
+- Works without a connection: the bear and its animations, and anything that never asks the server.
+- Not built yet: showing previously loaded data with a "may be out of date, last refreshed at ..." label (FR-048, task T054).
+  That read-only caching is the sensible first step before any offline writing.
+
+### What offline use could look like (ideas to decide on later)
+
+| Function | Offline idea | Difficulty |
+|---|---|---|
+| View meals, goal bar, progress | Keep the last loaded copy on the device; label it stale with its refresh time | Small |
+| Log a meal | Save on the device as "waiting to sync", count it on the goal bar, send when a connection returns | Medium |
+| Delete or edit a meal | Queue the change; if the meal itself is still unsent, just change the queued copy | Medium |
+| Settings (target, reminder times, animate) | Keep the change locally and send later; the server is the source of truth, so conflicts need a rule | Medium |
+| Sudoku and rewards (future, Phase 5) | Play locally; send energy cost and reward once, with a one-time id, when online | Medium to large |
+| Sign-in, registration, log out | Sign-in and registration need the server. Log out works offline. | Fixed by nature |
+
+### What it would need
+
+1. **Duplicate protection (FR-047)**: every queued meal gets an id made on the device; the server stores it with a unique index
+   so a resend after a lost response is recognised and not saved twice. This is the main server change.
+2. **A durable queue on the device**: saved in local storage, survives app restarts, sent one at a time in order, never dropped
+   silently. Items show "waiting to sync", "sent" or "needs attention" (for example the sign-in expired, or validation failed).
+3. **Rules for sending**: when connectivity returns or the app opens; limited retries with a clear failure state; no automatic
+   retry of something the server rejected as invalid.
+4. **Conflicts**: field-level conflict detection already exists on the server for same-field edits (FR-051); queued edits
+   would carry the version they started from and show the same "refresh and try again" outcome.
+5. **Time**: the meal's real eaten-at moment is kept, not the time it syncs; day boundaries use the device timezone at the
+   time of entry (the account timezone follows the device).
+6. **Sign-in while offline**: the stored token may expire (30 days) while a queue is waiting; the person must sign in again
+   and then the queue is sent under that account only (never to another user who signs in on the same phone: queue is
+   tied to the account and cleared on log out, with a warning if unsent items exist).
+7. **Honest wording everywhere**: "saved on this phone, will be sent when you're online", never "saved" for something the
+   server has not confirmed.
+8. **Tests**: queue persistence, double-send protection, expired sign-in, two accounts on one phone, reconnect storm, and a
+   manual airplane-mode checklist on Android and iPhone.
+
+### Specification changes this needs (when you decide to do it)
+
+- Replace the "no queued writes" parts of FR-049 and the offline assumption with a precise queued-write rule.
+- Add acceptance scenarios and success criteria (for example: a meal logged in airplane mode appears with a "waiting" label, and
+  after reconnecting exactly one copy exists on the server).
+- Decide which functions are in scope first (meals only is the smallest useful version).

@@ -15,7 +15,11 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.bearcare.app"
+      "package": "com.bearcare.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#315b49"
+      }
     },
     "plugins": [
       [
@@ -26,6 +30,11 @@
         }
       ],
       "expo-secure-store"
-    ]
+    ],
+    "icon": "./assets/icon.png",
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    }
   }
 }

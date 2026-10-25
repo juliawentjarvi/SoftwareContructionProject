@@ -126,6 +126,46 @@ Run on a phone in Expo Go and on a desktop browser. Record device, date and resu
 10. **App icon**: the home-screen icon (installed build) and the browser tab show the bear's head.
 11. **Backend removal** (FR-069): `backend/` is gone; server tests/build, mobile tests and typecheck all pass.
 
+### Increment 2 record (T063-T083, 2026-10-25)
+
+- Automated: API 84 tests (database-backed ones against `bear_buddy_test`), API typecheck and build passed; mobile
+  tests and typecheck passed; `expo-doctor` 20/20.
+- Walked through in headless Edge against the real API: no "forgot password" and a password-safekeeping notice on
+  registration; account timezone set from the device on sign-in; no timezone field; reminder blocks 5, 2, 12 for targets
+  5, 2, 40; animate switch off stops idle animation; goal bar 2/3 at 67 %; log out returns to sign-in with no data.
+- Smooth breathing (SC-023): over 20 s in headless Edge, p99 frame time 26 ms, 1 frame over 33 ms, no long tasks; DOM
+  updates about 46 a second (the body part only). Needs a look by eye on a real browser and a phone.
+- **Still to do on devices (T084)**: Expo Go on Android and iPhone opens without the missing-module error; icon shown on an
+  installed build; breathing looks smooth by eye; timezone change on a phone; goal bar on a phone.
+
+### Stay signed in record (T085-T087, 2026-10-25)
+
+- Server 87 tests, mobile 84 tests, typechecks passed. In headless Edge against the real API: registered, reloaded
+  (still signed in); blocked the API on launch (connection message, token kept, "Try again" signed in); logged out and
+  reloaded (sign-in screen); deleted the account elsewhere and reloaded (sign-in screen, stale token discarded).
+- **Not yet checked on a phone** (T088): close and reopen in Expo Go, airplane mode on launch, log out then relaunch.
+
+### Phase 5 slice 1 record (T036, T037, T040-T044, 2026-10-25)
+
+- Tests first (energy arithmetic, activity validation/ownership/progress); server 111 tests against `bear_buddy_test`, typecheck
+  and build passed; mobile 90 tests and typecheck passed.
+- In headless Edge against the real API: no steps entered shows "No steps entered today" with 0/30 energy; setting a step target
+  of 5,000 without steps still shows none; logging 5,600 steps shows "5,600 / 5,000 steps - target reached" and 25/30 energy
+  (5 full intervals x 5); deleting the entry returns to "No steps entered today" and 0/30.
+- Not yet checked on a phone. Sudoku energy cost, rewards and the streak/health rules are later slices.
+
+### Phase 5 slice 2 record (T038, T045-T047, 2026-10-25)
+
+- Server 128 tests and mobile 107 tests passed, typechecks and the server build passed, iOS/Android/web bundles compile.
+- Streak (option 2) and bear health covered by `server/tests/streak.test.ts`; Sudoku rules by `mobile/src/services/sudoku.test.ts`
+  (generation with a unique solution, muted digits only when in all nine boxes, red clashes, win and incorrect results);
+  start/resume/retry safety by `mobile/src/services/sudokuGame.test.ts`; energy cost and rewards by `server/tests/sudoku.test.ts`,
+  including the spec example (five meals for a five-meal target: 100% then 90% after one game start).
+- In headless Edge against the real API: started a game (81 cells, 36 clues, about 150 ms to generate and start), reloaded and
+  resumed it, filled it with one wrong digit (not-quite message), corrected it (solved, +10 reward points), energy -5 after the
+  game and 10 reward points on the server.
+- Not yet checked on a phone (puzzle generation speed and touch size of the grid and number pad).
+
 ## API reachability and endpoint switching
 
 1. Start the API from `server/` using `npm run dev`; verify `GET /health`.

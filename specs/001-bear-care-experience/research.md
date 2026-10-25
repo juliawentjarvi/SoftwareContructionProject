@@ -2,6 +2,8 @@
 
 ## 1. Active Client/API Boundary
 
+> **Update 2026-10-25**: `backend/` was verified as an unused stub and has been removed (section 20).
+
 **Decision**: Treat `mobile/` and the documented `server/` API as the primary product path. Do
 not expand or delete the separate `backend/` tree during stabilization until its ownership and
 consumers are confirmed.

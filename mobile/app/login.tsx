@@ -24,42 +24,6 @@ export default function LoginScreen({ onAuthenticated, onCreateAccount }: LoginS
 	const [error, setError] = useState<string | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
-	const [mode, setMode] = useState<"login" | "forgot" | "code">("login");
-	const [info, setInfo] = useState<string | null>(null);
-	const [code, setCode] = useState("");
-	const [newPassword, setNewPassword] = useState("");
-
-	const goTo = (next: typeof mode) => { setMode(next); setError(null); setInfo(null); };
-
-	const sendCode = async () => {
-		setError(null);
-		if (!email.trim()) { setError("Enter the email address for your account."); return; }
-		setIsSubmitting(true);
-		try {
-			const result = await api.requestPasswordReset(email.trim());
-			if (!result.ok) { setError(errorMessage(result.body, "The request couldn't be sent. Check your connection and try again.")); return; }
-			setMode("code");
-			setInfo("If an account exists for that email, a reset code has been sent. Enter it below with a new password.");
-		} finally {
-			setIsSubmitting(false);
-		}
-	};
-
-	const resetPassword = async () => {
-		setError(null);
-		if (!code.trim() || newPassword.length < 10) { setError("Enter the code and a new password of at least 10 characters."); return; }
-		setIsSubmitting(true);
-		try {
-			const result = await api.confirmPasswordReset(code, newPassword);
-			if (!result.ok) { setError(errorMessage(result.body, "The password couldn't be changed. Check the code and try again.")); return; }
-			setCode(""); setNewPassword(""); setPassword("");
-			setMode("login");
-			setInfo("Your password was changed. Sign in with the new password.");
-		} finally {
-			setIsSubmitting(false);
-		}
-	};
-
 	const handleLogin = async () => {
 		setError(null);
 		if (!email.trim() || !password) {
@@ -87,8 +51,8 @@ export default function LoginScreen({ onAuthenticated, onCreateAccount }: LoginS
 					<View style={styles.brandMark}><Text style={styles.brandMarkText}>B</Text></View>
 					<Text style={styles.brandName}>BEAR CARE</Text>
 				</View>
-				<Text style={styles.title}>{mode === "login" ? "Welcome back" : "Reset your password"}</Text>
-				<Text style={styles.subtitle}>{mode === "login" ? "Sign in to check in with your bear." : mode === "forgot" ? "We will email you a code that works once for 30 minutes." : "Enter the code from your email."}</Text>
+				<Text style={styles.title}>Welcome back</Text>
+				<Text style={styles.subtitle}>Sign in to check in with your bear.</Text>
 
 				<View style={styles.form}>
 					<Text style={styles.label}>Email</Text>
@@ -105,52 +69,28 @@ export default function LoginScreen({ onAuthenticated, onCreateAccount }: LoginS
 						textContentType="emailAddress"
 						accessibilityLabel="Email address"
 					/>
-					{mode === "login" && info ? <Text accessibilityRole="alert" style={styles.info}>{info}</Text> : null}
-					{mode === "login" ? <>
-						<Text style={styles.label}>Password</Text>
-						<TextInput
-							style={styles.input}
-							value={password}
-							onChangeText={setPassword}
-							placeholder="Your password"
-							placeholderTextColor="#7b8780"
-							secureTextEntry
-							autoComplete="current-password"
-							textContentType="password"
-							accessibilityLabel="Password"
-							onSubmitEditing={handleLogin}
-						/>
-						{error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
-						<Pressable
-							style={({ pressed }) => [styles.submit, pressed && !isSubmitting && styles.submitPressed, isSubmitting && styles.submitDisabled]}
-						onPress={handleLogin}
-						disabled={isSubmitting}
-						accessibilityRole="button"
-					>
-							{isSubmitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitText}>Sign in</Text>}
-						</Pressable>
-						<Pressable onPress={() => goTo("forgot")} accessibilityRole="button" style={styles.forgot}><Text style={styles.switchAction}>Forgot password?</Text></Pressable>
-					</> : null}
-					{mode === "forgot" ? <>
-						{error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
-						<Pressable style={[styles.submit, isSubmitting && styles.submitDisabled]} onPress={() => void sendCode()} disabled={isSubmitting} accessibilityRole="button">
-							{isSubmitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitText}>Send reset code</Text>}
-						</Pressable>
-						<Pressable onPress={() => goTo("code")} accessibilityRole="button" style={styles.forgot}><Text style={styles.switchAction}>I already have a code</Text></Pressable>
-						<Pressable onPress={() => goTo("login")} accessibilityRole="button" style={styles.forgot}><Text style={styles.switchAction}>Back to sign in</Text></Pressable>
-					</> : null}
-					{mode === "code" ? <>
-						{info ? <Text accessibilityRole="alert" style={styles.info}>{info}</Text> : null}
-						<Text style={styles.label}>Reset code</Text>
-						<TextInput style={styles.input} value={code} onChangeText={setCode} autoCapitalize="none" autoCorrect={false} accessibilityLabel="Reset code" placeholder="Paste the code from the email" placeholderTextColor="#7b8780" />
-						<Text style={styles.label}>New password</Text>
-						<TextInput style={styles.input} value={newPassword} onChangeText={setNewPassword} secureTextEntry autoComplete="new-password" accessibilityLabel="New password" placeholder="At least 10 characters" placeholderTextColor="#7b8780" onSubmitEditing={() => void resetPassword()} />
-						{error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
-						<Pressable style={[styles.submit, isSubmitting && styles.submitDisabled]} onPress={() => void resetPassword()} disabled={isSubmitting} accessibilityRole="button">
-							{isSubmitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitText}>Change password</Text>}
-						</Pressable>
-						<Pressable onPress={() => goTo("login")} accessibilityRole="button" style={styles.forgot}><Text style={styles.switchAction}>Back to sign in</Text></Pressable>
-					</> : null}
+					<Text style={styles.label}>Password</Text>
+					<TextInput
+						style={styles.input}
+						value={password}
+						onChangeText={setPassword}
+						placeholder="Your password"
+						placeholderTextColor="#7b8780"
+						secureTextEntry
+						autoComplete="current-password"
+						textContentType="password"
+						accessibilityLabel="Password"
+						onSubmitEditing={handleLogin}
+					/>
+					{error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+					<Pressable
+						style={({ pressed }) => [styles.submit, pressed && !isSubmitting && styles.submitPressed, isSubmitting && styles.submitDisabled]}
+					onPress={handleLogin}
+					disabled={isSubmitting}
+					accessibilityRole="button"
+				>
+						{isSubmitting ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.submitText}>Sign in</Text>}
+					</Pressable>
 				</View>
 
 				<View style={styles.switchRow}>
@@ -166,8 +106,6 @@ export default function LoginScreen({ onAuthenticated, onCreateAccount }: LoginS
 }
 
 const styles = StyleSheet.create({
-	forgot: { alignSelf: "flex-start", paddingVertical: 10 },
-	info: { color: "#315b49", fontSize: 13, lineHeight: 18, marginBottom: 10 },
 	screen: { flex: 1, backgroundColor: "#eef3ed" },
 	content: { flexGrow: 1, justifyContent: "center", paddingHorizontal: 24, paddingVertical: 36 },
 	brand: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 32 },

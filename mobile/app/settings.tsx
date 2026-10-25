@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import api, { AuthSession, errorMessage, Profile } from "../src/services/api";
-import { isTimeZone } from "../src/services/time";
-import { getAlwaysAnimate, setAlwaysAnimate } from "../src/services/bearPrefs";
+import { getAnimate, setAnimate } from "../src/services/bearPrefs";
+import { ANIMATE_DESCRIPTION } from "../src/services/copy";
 import { DEVICE_CONTROLS_NOTE, disableMealReminders, reminderSupport } from "../src/services/reminders";
 import { checkReminderTimes, saveReminderTimes, setRemindersEnabled } from "../src/services/reminderSettings";
 import ApiConnectionSettings from "../src/components/ApiConnectionSettings";
@@ -14,16 +14,17 @@ interface SettingsScreenProps {
 	deviceReminders: boolean;
 	onDeviceReminders: (scheduled: boolean) => void;
 	onAccountDeleted: () => void;
+	onLogout: () => Promise<void>;
 }
 
-export default function SettingsScreen({ session, onProfileChanged, deviceReminders, onDeviceReminders, onAccountDeleted }: SettingsScreenProps) {
+export default function SettingsScreen({ session, onProfileChanged, deviceReminders, onDeviceReminders, onAccountDeleted, onLogout }: SettingsScreenProps) {
 	const support = reminderSupport();
 	const [profile, setProfile] = useState(session.user);
 	const [times, setTimes] = useState(session.user.reminderTimes);
 	const [error, setError] = useState<string | null>(null);
 	const [isSaving, setIsSaving] = useState(false);
 
-	const save = async (changes: Partial<Pick<Profile, "displayName" | "timezone" | "dailyMealGoal" | "notificationsEnabled" | "reminderTimes">>) => {
+	const save = async (changes: Partial<Pick<Profile, "displayName" | "dailyMealGoal" | "stepTarget" | "notificationsEnabled" | "reminderTimes">>) => {
 		setIsSaving(true);
 		setError(null);
 		const result = await api.updateProfile(session.accessToken, changes);
@@ -86,21 +87,33 @@ export default function SettingsScreen({ session, onProfileChanged, deviceRemind
 		if (value === profile.dailyMealGoal) return;
 		const updated = await save({ dailyMealGoal: value });
 		setGoalText(String(updated?.dailyMealGoal ?? profile.dailyMealGoal));
+		if (updated) setTimes(updated.reminderTimes); // one reminder per planned meal: the server adds or removes blocks
+	};
+
+	const [stepText, setStepText] = useState(session.user.stepTarget === null ? "" : String(session.user.stepTarget));
+
+	// Empty clears the target (steps are then never reported as a met goal).
+	const saveStepTarget = async () => {
+		const text = stepText.trim();
+		const value = text === "" ? null : Number(text);
+		if (value !== null && (!/^\d+$/.test(text) || !Number.isSafeInteger(value) || value < 1 || value > 1_000_000)) {
+			setError("Enter a whole number of steps, or leave it empty for no step target.");
+			setStepText(profile.stepTarget === null ? "" : String(profile.stepTarget));
+			return;
+		}
+		if (value === profile.stepTarget) return;
+		const updated = await save({ stepTarget: value });
+		if (updated) setStepText(updated.stepTarget === null ? "" : String(updated.stepTarget));
 	};
 
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
-	const [alwaysAnimate, setAlwaysAnimateState] = useState(false);
-	useEffect(() => { void getAlwaysAnimate().then(setAlwaysAnimateState); }, []);
-	const [timezone, setTimezone] = useState(session.user.timezone);
+	const [animate, setAnimateState] = useState(true);
+	useEffect(() => { void getAnimate().then(setAnimateState); }, []);
+	const [loggingOut, setLoggingOut] = useState(false);
 
-	const saveTimezone = async () => {
-		const value = timezone.trim();
-		if (!isTimeZone(value)) {
-			setError("Use a valid timezone name, such as Europe/Stockholm.");
-			return;
-		}
-		const updated = await save({ timezone: value });
-		if (updated) setTimezone(updated.timezone);
+	const logOut = async () => {
+		setLoggingOut(true);
+		await onLogout();
 	};
 
 	const deleteAccount = async () => {
@@ -122,6 +135,13 @@ export default function SettingsScreen({ session, onProfileChanged, deviceRemind
 			<Text style={styles.title}>Profile & settings</Text>
 			<Text style={styles.email}>{profile.email}</Text>
 
+			<View style={styles.logoutBox}>
+				<Pressable accessibilityRole="button" accessibilityLabel="Log out" onPress={() => void logOut()} disabled={loggingOut} style={[styles.logoutButton, loggingOut && styles.disabled]}>
+					{loggingOut ? <ActivityIndicator color="#fff" /> : <Text style={styles.logoutText}>Log out</Text>}
+				</Pressable>
+				<Text style={styles.logoutHint}>Signs you out on this device. Your meals and settings stay saved on your account.</Text>
+			</View>
+
 			<View style={styles.section}>
 				<Text style={styles.sectionTitle}>Server connection</Text>
 				<ApiConnectionSettings />
@@ -131,19 +151,19 @@ export default function SettingsScreen({ session, onProfileChanged, deviceRemind
 				<Text style={styles.sectionTitle}>Profile</Text>
 				<Text style={styles.label}>Display name</Text>
 				<TextInput accessibilityLabel="Display name" style={styles.input} value={profile.displayName} onChangeText={(displayName) => setProfile({ ...profile, displayName })} onBlur={() => void save({ displayName: profile.displayName })} maxLength={60} />
-				<Text style={styles.label}>Timezone (meal times are shown in this zone)</Text>
-				<TextInput accessibilityLabel="Timezone" style={styles.input} value={timezone} onChangeText={setTimezone} onBlur={() => void saveTimezone()} autoCapitalize="none" autoCorrect={false} placeholder="Europe/Stockholm" maxLength={100} />
 				<Text style={styles.label}>Meals you aim for each day</Text>
 				<TextInput accessibilityLabel="Meals per day" style={[styles.input, styles.goalInput]} value={goalText} onChangeText={setGoalText} onBlur={() => void saveGoal()} onSubmitEditing={() => void saveGoal()} keyboardType="number-pad" maxLength={3} />
+				<Text style={styles.label}>Daily step target (optional)</Text>
+				<TextInput accessibilityLabel="Step target" placeholder="For example 8000" style={[styles.input, styles.goalInput]} value={stepText} onChangeText={setStepText} onBlur={() => void saveStepTarget()} onSubmitEditing={() => void saveStepTarget()} keyboardType="number-pad" maxLength={7} />
 			</View>
 
 			<View style={styles.section}>
 				<View style={styles.settingRow}>
 					<View style={styles.settingCopy}>
-						<Text style={styles.sectionTitle}>Bear animations</Text>
-						<Text style={styles.description}>Your device may ask apps to reduce motion, which pauses the bear's breathing, blinking and idle moves. Turn this on to keep them anyway; tapping the bear always works.</Text>
+						<Text style={styles.sectionTitle}>Animate the bear</Text>
+						<Text style={styles.description}>{ANIMATE_DESCRIPTION}</Text>
 					</View>
-					<Switch value={alwaysAnimate} onValueChange={(value) => { setAlwaysAnimateState(value); void setAlwaysAnimate(value); }} accessibilityLabel="Always animate the bear" />
+					<Switch value={animate} onValueChange={(value) => { setAnimateState(value); void setAnimate(value); }} accessibilityLabel="Animate the bear" />
 				</View>
 			</View>
 
@@ -156,13 +176,12 @@ export default function SettingsScreen({ session, onProfileChanged, deviceRemind
 					</View>
 					<Switch value={profile.notificationsEnabled && deviceReminders} onValueChange={(enabled) => void toggleReminders(enabled)} accessibilityLabel="Meal reminders" disabled={isSaving} />
 				</View>
-				<Text style={styles.label}>Reminder times ({times.length} a day)</Text>
+				<Text style={styles.label}>Reminder times: one for each of your {profile.dailyMealGoal} planned meal{profile.dailyMealGoal === 1 ? "" : "s"}{profile.dailyMealGoal > times.length ? ` (showing ${times.length}, the most we schedule)` : ""}</Text>
 				{times.map((time, index) => <View key={index} style={styles.timeRow}>
+					<Text style={styles.timeLabel}>Meal {index + 1}</Text>
 					<TextInput accessibilityLabel={`Reminder ${index + 1} time`} style={[styles.input, styles.timeInput]} value={time} onChangeText={(value) => setTimes(times.map((entry, entryIndex) => entryIndex === index ? value : entry))} placeholder="09:00" keyboardType="numbers-and-punctuation" maxLength={5} />
-					{times.length > 1 ? <Pressable accessibilityRole="button" accessibilityLabel={`Remove reminder ${index + 1}`} onPress={() => setTimes(times.filter((_, entryIndex) => entryIndex !== index))}><Text style={styles.removeText}>Remove</Text></Pressable> : null}
 				</View>)}
 				<View style={styles.timeActions}>
-					{times.length < 8 ? <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => setTimes([...times, "12:00"])}><Text style={styles.secondaryButtonText}>Add a reminder</Text></Pressable> : null}
 					<Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => void updateReminderTimes()} disabled={isSaving}><Text style={styles.secondaryButtonText}>{isSaving ? "Saving..." : "Save reminder times"}</Text></Pressable>
 				</View>
 				<Text style={styles.footnote}>{DEVICE_CONTROLS_NOTE}</Text>
@@ -185,6 +204,12 @@ export default function SettingsScreen({ session, onProfileChanged, deviceRemind
 }
 
 const styles = StyleSheet.create({
+	logoutBox: { marginBottom: 18 },
+	logoutButton: { minHeight: 52, backgroundColor: "#315b49", borderRadius: 8, alignItems: "center", justifyContent: "center" },
+	logoutText: { color: "#fff", fontSize: 17, fontWeight: "800" },
+	logoutHint: { color: "#58665e", fontSize: 12, marginTop: 8 },
+	timeLabel: { color: "#58665e", fontSize: 13 },
+	disabled: { opacity: 0.7 },
 	screen: { flex: 1, backgroundColor: "#f8f7f0" },
 	content: { padding: 20, paddingBottom: 40 },
 	kicker: { color: "#a34b36", fontSize: 11, fontWeight: "800", letterSpacing: 1.5 },

@@ -1,16 +1,16 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Pressable, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import { Pressable, View } from "react-native";
 import Svg from "react-native-svg";
 import { BearArt } from "./BearArt.generated";
 import { BORED_BEHAVIORS, BearAnimator, Clip, TAP_REACTIONS, blink, earWave, feedJump, hearts } from "./animation";
-import { PoseContext } from "./Part";
-import type { Pose } from "./pose";
-import { getAlwaysAnimate } from "../../services/bearPrefs";
+import { PoseStoreContext } from "./Part";
+import { PoseStore } from "./poseStore";
+import { idlePolicy } from "./idlePolicy";
+import { getAnimate } from "../../services/bearPrefs";
 
 // Visible region: the bear plus room to jump and for hearts to float up.
 const VIEW_BOX = "134 360 813 1180";
 const ASPECT = 813 / 1180;
-const FRAME_MS = 33;
 const FEED_WINDOW_MS = 3000;
 
 const pick = <T,>(items: T[]): T => items[Math.floor(Math.random() * items.length)];
@@ -28,8 +28,8 @@ export type BearProps = {
 
 export function Bear({ height = 250, fedAt = null, emoteSignal = 0, boredAfterSeconds = 30 }: BearProps) {
 	const animator = useRef(new BearAnimator()).current;
-	const [pose, setPose] = useState<Pose>({});
-	const reduceMotion = useRef(false);
+	const store = useMemo(() => new PoseStore(), []);
+	const policy = useRef(idlePolicy(true));
 	const lastInteraction = useRef(Date.now());
 	const clock = useRef(() => Date.now() / 1000).current;
 
@@ -37,54 +37,49 @@ export function Bear({ height = 250, fedAt = null, emoteSignal = 0, boredAfterSe
 	const interact = useCallback(() => { lastInteraction.current = Date.now(); }, []);
 	const react = useCallback(() => { interact(); play(pick(TAP_REACTIONS)()); }, [interact, play]);
 
-	// Frame loop: sample the animator ~30 times a second.
+	// Frame loop: sample the animator every display frame. Only the parts that changed re-render (see PoseStore).
 	useEffect(() => {
 		let frame = 0;
-		let last = 0;
-		const loop = (time: number) => {
-			if (time - last >= FRAME_MS) {
-				last = time;
-				setPose(animator.sample(clock()));
-			}
+		const loop = () => {
+			store.apply(animator.sample(clock()));
 			frame = requestAnimationFrame(loop);
 		};
 		frame = requestAnimationFrame(loop);
 		return () => cancelAnimationFrame(frame);
-	}, [animator, clock]);
+	}, [animator, clock, store]);
 
-	// Autonomous behavior: blinking, ear waves, and boredom.
+	// Autonomous behavior: blinking, ear waves, and boredom, all controlled by the "Animate the bear" setting.
 	useEffect(() => {
 		let cancelled = false;
 		const timers: ReturnType<typeof setTimeout>[] = [];
 		const schedule = (fn: () => void, min: number, max: number) => {
-			const timer = setTimeout(() => { if (!cancelled) fn(); }, between(min, max) * 1000);
-			timers.push(timer);
+			timers.push(setTimeout(() => { if (!cancelled) fn(); }, between(min, max) * 1000));
 		};
 		const blinkLoop = () => {
-			if (!reduceMotion.current) {
+			if (policy.current.blinking) {
 				play(blink());
-				if (Math.random() < 0.25) setTimeout(() => { if (!cancelled) play(blink()); }, 330);
+				if (Math.random() < 0.25) setTimeout(() => { if (!cancelled && policy.current.blinking) play(blink()); }, 330);
 			}
 			schedule(blinkLoop, 2.2, 5.5);
 		};
 		const earLoop = () => {
-			if (!reduceMotion.current) play(earWave(Math.random() < 0.5 ? "left" : "right"));
+			if (policy.current.earWaves) play(earWave(Math.random() < 0.5 ? "left" : "right"));
 			schedule(earLoop, 8, 20);
 		};
 		const boredLoop = () => {
 			const idle = (Date.now() - lastInteraction.current) / 1000;
-			if (!reduceMotion.current && idle >= boredAfterSeconds && !animator.isPlaying("body")) {
+			if (policy.current.bored && idle >= boredAfterSeconds && !animator.isPlaying("body")) {
 				play(pick(BORED_BEHAVIORS)());
-				lastInteraction.current = Date.now() - (boredAfterSeconds - 12) * 1000; // repeat roughly every 12–20 s while idle
+				lastInteraction.current = Date.now() - (boredAfterSeconds - 12) * 1000; // repeat roughly every 12-20 s while idle
 			}
 			schedule(boredLoop, 4, 8);
 		};
-		// Idle animations follow the device's reduce-motion setting unless the user chose to always animate the bear.
-		void Promise.all([AccessibilityInfo.isReduceMotionEnabled(), getAlwaysAnimate()]).then(([deviceReduces, always]) => {
+		void getAnimate().then((animate) => {
 			if (cancelled) return;
-			reduceMotion.current = deviceReduces && !always;
-			animator.breathing = !reduceMotion.current;
-		}).catch(() => undefined);
+			policy.current = idlePolicy(animate);
+			animator.breathing = policy.current.breathing;
+		});
+		animator.breathing = true;
 		schedule(blinkLoop, 1, 3);
 		schedule(earLoop, 5, 10);
 		schedule(boredLoop, 4, 8);
@@ -110,11 +105,11 @@ export function Bear({ height = 250, fedAt = null, emoteSignal = 0, boredAfterSe
 	return (
 		<Pressable onPress={react} accessibilityRole="button" accessibilityLabel="Bear. Tap to say hi." style={{ height, width: height * ASPECT }}>
 			<View pointerEvents="none" style={{ flex: 1 }}>
-				<PoseContext.Provider value={pose}>
+				<PoseStoreContext.Provider value={store}>
 					<Svg width="100%" height="100%" viewBox={VIEW_BOX} fillRule="evenodd">
 						<BearArt />
 					</Svg>
-				</PoseContext.Provider>
+				</PoseStoreContext.Provider>
 			</View>
 		</Pressable>
 	);

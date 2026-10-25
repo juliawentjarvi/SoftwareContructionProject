@@ -35,10 +35,10 @@ export const loginSchema = z.object({
 });
 
 // Reminder times are local wall-clock times on the user's device, so they are independent of the profile timezone.
-// How often reminders appear is the number of times (1 to 8 a day), kept in time order without duplicates.
+// One reminder per planned meal, up to 12 a day (see reminder-schedule.ts), kept in time order without duplicates.
 const reminderTimesField = z.array(z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/))
   .min(1, 'Choose at least one reminder time')
-  .max(8, 'Choose at most eight reminder times')
+  .max(12, 'Choose at most twelve reminder times')
   .refine((times) => new Set(times).size === times.length, 'Reminder times must be different')
   .transform((times) => [...times].sort());
 
@@ -46,6 +46,7 @@ export const profilePatchSchema = z.object({
   displayName: z.string().trim().min(1).max(60).optional(),
   timezone: timezoneField.optional(),
   dailyMealGoal: z.number().int().min(1).optional(),
+  stepTarget: z.number().int().min(1).max(1_000_000).nullable().optional(),
   notificationsEnabled: z.boolean().optional(),
   reminderTimes: reminderTimesField.optional(),
 }).refine((value) => Object.keys(value).length > 0, 'Provide at least one profile field');
@@ -73,3 +74,21 @@ export const mealsQuerySchema = z.object({
   const duration = Date.parse(value.to) - Date.parse(value.from);
   return duration >= 0 && duration <= 31 * 24 * 60 * 60 * 1000;
 }, 'Date range must be ordered and no longer than 31 days');
+
+const stepCount = z.number().int().min(0).max(1_000_000);
+
+export const activityCreateSchema = z.object({
+  type: z.string().trim().min(1).max(60),
+  occurredAt: z.iso.datetime({ offset: true }).transform((value) => new Date(value)),
+  stepCount: stepCount.optional(),
+  notes: z.string().trim().max(280).nullable().optional(),
+});
+
+export const activityPatchSchema = z.object({
+  type: z.string().trim().min(1).max(60).optional(),
+  occurredAt: z.iso.datetime({ offset: true }).transform((value) => new Date(value)).optional(),
+  stepCount: stepCount.nullable().optional(),
+  notes: z.string().trim().max(280).nullable().optional(),
+}).refine((value) => Object.keys(value).length > 0, 'Provide at least one activity field');
+
+export const sudokuStartSchema = z.object({ gameId: z.string().uuid() });

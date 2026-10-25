@@ -25,7 +25,7 @@ For access across changing public and private Wi-Fi or cellular networks, deploy
 
 ## API contract
 
-All error responses use `{ "error": { "code": "...", "message": "..." } }`. Protected endpoints require `Authorization: Bearer <accessToken>`. Access tokens expire according to `JWT_EXPIRES_IN` (7 days by default).
+All error responses use `{ "error": { "code": "...", "message": "..." } }`. Protected endpoints require `Authorization: Bearer <accessToken>`. Access tokens expire according to `JWT_EXPIRES_IN` (30 days by default). The app calls `POST /api/auth/refresh` whenever it opens with a stored sign-in; it returns the profile and a fresh token, so people stay signed in as long as they keep using the app, until they log out.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
@@ -34,6 +34,7 @@ All error responses use `{ "error": { "code": "...", "message": "..." } }`. Prot
 | `POST` | `/api/auth/login` | Sign in with `email` and `password` |
 | `POST` | `/api/auth/password-reset/request` | Ask for a reset code by email; always answers `202` with the same message |
 | `POST` | `/api/auth/password-reset/confirm` | Set a new password with `token` and `password`; the code works once for 30 minutes (`204`, or `400 INVALID_RESET_TOKEN`) |
+| `POST` | `/api/auth/refresh` | Confirm the stored sign-in is still valid; returns the profile and a fresh token |
 | `GET` | `/api/auth/me` | Return the signed-in profile |
 | `DELETE` | `/api/auth/me` | Delete the signed-in profile and meal entries |
 | `GET` | `/api/profile` | Read profile and daily meal goal |

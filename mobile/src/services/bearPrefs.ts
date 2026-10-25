@@ -1,19 +1,19 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const ALWAYS_ANIMATE_KEY = "bear-care-always-animate";
+const ANIMATE_KEY = "bear-care-animate";
 
-/** Whether the bear keeps its idle animations even when the device asks for reduced motion. */
-export async function getAlwaysAnimate(): Promise<boolean> {
+/** Whether the bear's idle animations (breathing, blinking, ear waves, bored moves) run. On unless the user turns it off. */
+export async function getAnimate(): Promise<boolean> {
 	try {
-		return (await AsyncStorage.getItem(ALWAYS_ANIMATE_KEY)) === "true";
+		return (await AsyncStorage.getItem(ANIMATE_KEY)) !== "false";
 	} catch {
-		return false;
+		return true;
 	}
 }
 
-export async function setAlwaysAnimate(value: boolean): Promise<void> {
+export async function setAnimate(value: boolean): Promise<void> {
 	try {
-		await AsyncStorage.setItem(ALWAYS_ANIMATE_KEY, String(value));
+		await AsyncStorage.setItem(ANIMATE_KEY, String(value));
 	} catch {
 		// The preference is a convenience; failing to save it must not break settings.
 	}

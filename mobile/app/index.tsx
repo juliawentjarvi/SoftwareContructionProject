@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { AppState, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import LoginScreen from "./login";
 import RegisterScreen from "./register";
 import MealsScreen from "./meals";
+import ActivityScreen from "./activity";
+import SudokuScreen from "./sudoku";
 import SettingsScreen from "./settings";
 import { Bear } from "../src/components/bear/Bear";
 import api, { AuthSession, errorMessage, Profile, ProgressSummary } from "../src/services/api";
@@ -10,8 +12,13 @@ import { configureNotifications, enableMealReminders, reminderSupport } from "..
 import { subscribeToNotificationResponses } from "../src/services/notificationListener";
 import { clearAccessToken, saveAccessToken } from "../src/services/sessionVault";
 import { setRemindersEnabled } from "../src/services/reminderSettings";
+import { goalBarFill, goalBarLabel } from "../src/services/goalBar";
+import { energyLabel, stepsLabel } from "../src/services/stepsDisplay";
+import { syncTimezone } from "../src/services/timezoneSync";
+import { endSession } from "../src/services/session";
+import { restoreSession } from "../src/services/restoreSession";
 
-type AppView = "home" | "meals" | "settings";
+type AppView = "home" | "meals" | "activity" | "sudoku" | "settings";
 
 export default function App() {
 	const [session, setSession] = useState<AuthSession | null>(null);
@@ -22,11 +29,58 @@ export default function App() {
 	const [fedAt, setFedAt] = useState<number | null>(null);
 	const [emoteSignal, setEmoteSignal] = useState(0);
 	const [savedOffer, setSavedOffer] = useState(false);
+	const [progressVersion, setProgressVersion] = useState(0);
 	// Whether this device really has the reminders scheduled; the saved preference alone does not mean it does.
 	const [deviceReminders, setDeviceReminders] = useState(false);
 
+	// Stay signed in: on launch, resume the stored sign-in if the server still accepts it.
+	const [restoring, setRestoring] = useState(true);
+	const [unreachable, setUnreachable] = useState<string | null>(null);
+
+	const restore = async () => {
+		setRestoring(true);
+		setUnreachable(null);
+		const result = await restoreSession();
+		if (result.status === "signed-in") await authenticate(result.session);
+		if (result.status === "unreachable") setUnreachable(result.message);
+		setRestoring(false);
+	};
+
+	useEffect(() => { void restore(); }, []);
+
+	const sessionRef = useRef<AuthSession | null>(null);
+	sessionRef.current = session;
+
+	// The device's timezone is the only timezone setting: follow it whenever the app is used.
+	const followDeviceTimezone = async (current: AuthSession) => {
+		const result = await syncTimezone(current.accessToken, current.user);
+		if (result.changed && sessionRef.current?.accessToken === current.accessToken) {
+			setSession({ ...sessionRef.current, user: result.user });
+		}
+	};
+
+	useEffect(() => {
+		const subscription = AppState.addEventListener("change", (state) => {
+			if (state === "active" && sessionRef.current) void followDeviceTimezone(sessionRef.current);
+		});
+		return () => subscription.remove();
+	}, []);
+
+	const logOut = async () => {
+		await endSession();
+		setSession(null);
+		setProgress(null);
+		setDeviceReminders(false);
+		setSavedOffer(false);
+		setFedAt(null);
+		setError(null);
+		setAuthMode("login");
+		setView("home");
+	};
+
 	const authenticate = async (nextSession: AuthSession) => {
 		setSession(nextSession);
+		void followDeviceTimezone(nextSession);
 		void saveAccessToken(nextSession.accessToken); // lets a reminder's "Log a meal" action save while the app is closed
 		setView("home");
 		setDeviceReminders(false);
@@ -44,7 +98,7 @@ export default function App() {
 			if (active && result.ok) setProgress(result.body.progress);
 		});
 		return () => { active = false; };
-	}, [session, view]);
+	}, [session, view, progressVersion]);
 
 	// Set up notification display and actions once on phones, and react to taps and answers on reminders.
 	useEffect(() => {
@@ -80,14 +134,29 @@ export default function App() {
 		if (session) setSession({ ...session, user });
 	};
 
+	if (restoring) {
+		return <View style={styles.centered}><Text style={styles.centeredTitle}>Bear Care</Text><Text style={styles.centeredText}>Waking up the bear...</Text></View>;
+	}
+
+	if (!session && unreachable) {
+		return (
+			<View style={styles.centered}>
+				<Text style={styles.centeredTitle}>Bear Care</Text>
+				<Text accessibilityRole="alert" style={styles.centeredText}>{unreachable}</Text>
+				<Pressable accessibilityRole="button" style={styles.primaryButton} onPress={() => void restore()}><Text style={styles.primaryButtonText}>Try again</Text></Pressable>
+				<Pressable accessibilityRole="button" onPress={() => { void endSession(); setUnreachable(null); }} style={styles.deleteLinkSpacing}><Text style={styles.centeredLink}>Log out instead</Text></Pressable>
+			</View>
+		);
+	}
+
 	if (!session) {
 		if (authMode === "register") return <RegisterScreen onAuthenticated={(value) => void authenticate(value)} onSignIn={() => setAuthMode("login")} />;
 		return <LoginScreen onAuthenticated={(value) => void authenticate(value)} onCreateAccount={() => setAuthMode("register")} />;
 	}
 
 	const mealCount = progress?.mealCount ?? 0;
-	const mealGoal = session.user.dailyMealGoal;
-	const energy = Math.min(100, mealCount / mealGoal * 100);
+	const mealGoal = progress?.dailyMealGoal ?? session.user.dailyMealGoal;
+	const energy = goalBarFill(mealCount, mealGoal);
 	const care = Math.min(100, (progress?.currentStreakDays ?? 0) / 7 * 100);
 
 	return (
@@ -107,7 +176,9 @@ export default function App() {
 			</View>
 
 			{view === "meals" ? <View style={styles.page}><Pressable onPress={() => setView("home")} style={styles.back}><Text style={styles.backText}>‹  Home</Text></Pressable><MealsScreen token={session.accessToken} timezone={session.user.timezone} onMealSaved={() => { setFedAt(Date.now()); setSavedOffer(true); setView("home"); }} /></View> : null}
-			{view === "settings" ? <View style={styles.page}><Pressable onPress={() => setView("home")} style={styles.back}><Text style={styles.backText}>‹  Home</Text></Pressable><SettingsScreen session={session} onProfileChanged={updateProfile} deviceReminders={deviceReminders} onDeviceReminders={setDeviceReminders} onAccountDeleted={() => { void clearAccessToken(); setSession(null); setView("home"); }} /></View> : null}
+			{view === "activity" ? <View style={styles.page}><Pressable onPress={() => setView("home")} style={styles.back}><Text style={styles.backText}>‹  Home</Text></Pressable><ActivityScreen token={session.accessToken} timezone={session.user.timezone} onSaved={() => undefined} /></View> : null}
+			{view === "sudoku" ? <View style={styles.page}><Pressable onPress={() => setView("home")} style={styles.back}><Text style={styles.backText}>‹  Home</Text></Pressable><SudokuScreen token={session.accessToken} onChanged={() => setProgressVersion((n) => n + 1)} /></View> : null}
+			{view === "settings" ? <View style={styles.page}><Pressable onPress={() => setView("home")} style={styles.back}><Text style={styles.backText}>‹  Home</Text></Pressable><SettingsScreen session={session} onProfileChanged={updateProfile} deviceReminders={deviceReminders} onDeviceReminders={setDeviceReminders} onLogout={logOut} onAccountDeleted={() => { void clearAccessToken(); setSession(null); setView("home"); }} /></View> : null}
 			{view === "home" ? <ScrollView style={styles.home} contentContainerStyle={styles.homeContent}>
 				{savedOffer ? <View accessibilityRole="alert" style={styles.savedOffer}>
 					<Text style={styles.savedText}>Meal saved.</Text>
@@ -115,7 +186,7 @@ export default function App() {
 				</View> : null}
 				<View style={styles.statusRow}>
 					<View style={styles.status}>
-						<View style={styles.statusHeading}><Text style={styles.statusLabel}>ENERGY</Text><Text style={styles.statusValue}>{mealCount}/{mealGoal}</Text></View>
+						<View style={styles.statusHeading}><Text style={styles.statusLabel}>DAILY GOAL</Text><Text style={styles.statusValue}>{goalBarLabel(mealCount, mealGoal)}</Text></View>
 						<View style={styles.track}><View style={[styles.fill, styles.energyFill, { width: `${energy}%` }]} /></View>
 					</View>
 					<View style={styles.status}>
@@ -124,12 +195,23 @@ export default function App() {
 					</View>
 				</View>
 
+				<View style={styles.statusRow}>
+					<View style={styles.status}>
+						<View style={styles.statusHeading}><Text style={styles.statusLabel}>ENERGY</Text><Text style={styles.statusValue}>{progress ? energyLabel(progress.energy) : "0/0 energy"}</Text></View>
+						<View style={styles.track}><View style={[styles.fill, styles.energyPointsFill, { width: `${progress?.energy.fill ?? 0}%` }]} /></View>
+					</View>
+					<View style={styles.status}>
+						<View style={styles.statusHeading}><Text style={styles.statusLabel}>STEPS</Text></View>
+						<Text accessibilityLabel="Steps today" style={styles.stepsText}>{stepsLabel(progress?.steps ?? null, progress?.stepTarget ?? session.user.stepTarget)}</Text>
+					</View>
+				</View>
+
 				<View style={styles.scene}>
 					<View style={styles.sceneTop}><Text style={styles.sceneOverline}>TODAY'S LITTLE CHECK-IN</Text><Text style={styles.sceneDate}>{progress?.date ?? ""}</Text></View>
 					<View style={styles.playArea}>
 						<Pressable onPress={() => setView("meals")} accessibilityRole="button" style={[styles.sceneObject, styles.bowl]}><Text style={styles.objectIcon}>◡</Text><Text style={styles.objectLabel}>Food bowl</Text></Pressable>
-						<View style={styles.bearArea}><Bear height={250} fedAt={fedAt} emoteSignal={emoteSignal} /><Text style={styles.bearCaption}>{progress?.goalMet ? "You did enough today." : "I'm here for your next pause."}</Text></View>
-						<Pressable onPress={() => { setEmoteSignal((n) => n + 1); Alert.alert("Sudoku", "The puzzle game is not implemented yet."); }} accessibilityRole="button" style={[styles.sceneObject, styles.sudoku]}><Text style={styles.sudokuGrid}>□ □ □</Text><Text style={styles.objectLabel}>Sudoku</Text></Pressable>
+						<View style={styles.bearArea}><Bear height={250} fedAt={fedAt} emoteSignal={emoteSignal} /><Text style={styles.bearCaption}>{progress?.goalMet ? "You did enough today." : progress?.bearHealth === "low" ? "I'm a little low on energy. A small meal and a pause would cheer me up." : "I'm here for your next pause."}</Text></View>
+						<Pressable onPress={() => { setEmoteSignal((n) => n + 1); setView("sudoku"); }} accessibilityRole="button" style={[styles.sceneObject, styles.sudoku]}><Text style={styles.sudokuGrid}>□ □ □</Text><Text style={styles.objectLabel}>Sudoku</Text></Pressable>
 					</View>
 					<View style={styles.sceneFoot}><Text style={styles.footText}>{progress?.goalMet ? "Today's meal goal is complete." : `${Math.max(0, mealGoal - mealCount)} meal${mealGoal - mealCount === 1 ? "" : "s"} to reach today's goal.`}</Text></View>
 				</View>
@@ -139,6 +221,7 @@ export default function App() {
 					{progress?.lastSevenDays.map((day) => <View key={day.date} style={styles.dayRow}><Text style={styles.dayDate}>{new Date(`${day.date}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</Text><View style={styles.dayTrack}><View style={[styles.dayFill, { width: `${Math.min(100, day.mealCount / mealGoal * 100)}%` }]} /></View><Text style={styles.dayCount}>{day.mealCount}/{mealGoal}</Text></View>)}
 				</View>
 
+				<Pressable accessibilityRole="button" style={[styles.primaryButton, styles.secondaryAction]} onPress={() => setView("activity")}><Text style={styles.primaryButtonText}>Log steps or activity</Text><Text style={styles.buttonArrow}>→</Text></Pressable>
 				<Pressable accessibilityRole="button" style={styles.primaryButton} onPress={() => setView("meals")}><Text style={styles.primaryButtonText}>Log a meal</Text><Text style={styles.buttonArrow}>→</Text></Pressable>
 				{error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
 			</ScrollView> : null}
@@ -147,6 +230,11 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+	centered: { flex: 1, alignItems: "center", justifyContent: "center", padding: 28, gap: 14, backgroundColor: "#eef3ed" },
+	centeredTitle: { color: "#1d2923", fontSize: 24, fontWeight: "800" },
+	centeredText: { color: "#58665e", fontSize: 15, textAlign: "center", maxWidth: 320 },
+	centeredLink: { color: "#315b49", fontSize: 14, textDecorationLine: "underline" },
+	deleteLinkSpacing: { paddingVertical: 8 },
 	app: { flex: 1, paddingTop: 44, backgroundColor: "#f8f7f0" },
 	header: { paddingHorizontal: 22, paddingBottom: 14, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 1, borderColor: "#e3e8e3" },
 	appTitle: { color: "#1d2923", fontSize: 21, fontWeight: "800" },
@@ -171,6 +259,9 @@ const styles = StyleSheet.create({
 	statusValue: { color: "#1d2923", fontSize: 13, fontWeight: "700" },
 	track: { height: 9, backgroundColor: "#e2e8df", borderRadius: 5, overflow: "hidden" },
 	fill: { height: "100%", borderRadius: 5 },
+	energyPointsFill: { backgroundColor: "#d9a441" },
+	stepsText: { color: "#1d2923", fontSize: 12, fontWeight: "600" },
+	secondaryAction: { backgroundColor: "#315b49", marginBottom: 10 },
 	energyFill: { backgroundColor: "#c5523e" },
 	careFill: { backgroundColor: "#5f9275" },
 	scene: { marginTop: 18, backgroundColor: "#e9efe6", borderRadius: 8, borderWidth: 1, borderColor: "#d7e1d4", overflow: "hidden" },

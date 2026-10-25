@@ -72,7 +72,7 @@ A user checks the home screen to see a bear, food bowl, Sudoku paper, meal progr
 7. **Given** a user taps the bear, **When** the bear responds, **Then** it performs one of these reactions, chosen at random: the right arm waves; the eyebrows lift and fall in a surprised expression; or both arms move in front of the eyes.
 8. **Given** a user prefers a quiet experience, **When** they use the mute toggle, **Then** app music and sound effects are muted without changing meal records or reminder preferences.
 9. **Given** a user records physical activity or step progress, **When** they view their log, **Then** their activity and step entries appear with their dates.
-10. **Given** a user has not entered step progress, **When** they view daily goals and their streak, **Then** the app does not show the step target as met or award a qualifying streak day.
+10. **Given** a user has set a step target but has not entered step progress for a day, **When** they view daily goals and their streak, **Then** the app does not show the step target as met or award a qualifying streak day; **Given** a user has no step target, **Then** meals alone decide whether a day qualifies.
 11. **Given** a user opens their profile on a supported mobile or desktop device, **When** they navigate the app's core flows, **Then** the account, logging, reminder settings, and pet progress remain usable.
 12. **Given** a user selects an optional profile picture, **When** they save their profile, **Then** the profile displays that picture and the user can change or remove it.
 13. **Given** a user has a daily meal target, **When** they log a meal, **Then** their daily energy balance increases by 10 energy points and the energy bar updates against a target of 10 energy points per planned meal.
@@ -131,6 +131,7 @@ animation off and on, and log out from settings and back in.
    reminders are still being figured out; the reminder time blocks remain editable and are saved.
 10. **Given** the app is installed or added to a home screen, **When** the user sees its icon, **Then** it is a bear's head
     drawn from the bear artwork, on both phone platforms and as the browser tab icon.
+11. **Given** a user who signed in, **When** they close and reopen the app (or reload the page), **Then** they are still signed in and see their data, until they choose "Log out" or the server no longer accepts their sign-in (the account was deleted or the sign-in expired after a long unused period); **When** the server cannot be reached at that moment, **Then** the app says so, keeps them signed in, and offers "Try again" instead of logging them out.
 
 ### Edge Cases
 
@@ -185,7 +186,7 @@ animation off and on, and log out from settings and back in.
 - **FR-019**: The home screen MUST display a bear, food bowl, Sudoku entry, meal energy bar, health indicator, and profile entry in the requested relative arrangement.
 - **FR-020**: The app MUST update the energy bar in proportion to logged meals and the user's daily meal target.
 - **FR-021**: The app MUST provide a playful bear health state that decreases when the user misses their meal target on two consecutive completed days, without presenting the state as medical information.
-- **FR-022**: The app MUST provide a heart-shaped streak indicator that progresses through a pleasant rainbow gradient for consecutive days when the meal and step targets are met.
+- **FR-022**: The app MUST provide a heart-shaped streak indicator that progresses through a pleasant rainbow gradient for consecutive days on which the meal target is met and, if the user has set a step target, the step target is met too.
 - **FR-023**: The streak heart MUST animate with a heartbeat when the user enters the app.
 - **FR-024**: When the bear is tapped it MUST perform one randomly chosen reaction: the right arm waves, the eyebrows lift and fall in a surprised expression, or both arms move in front of the eyes.
 - **FR-025**: The app MUST offer Sudoku as an optional game and award points for completing a game.
@@ -233,6 +234,7 @@ animation off and on, and log out from settings and back in.
 - **FR-067**: The home-screen daily goal bar MUST show meals logged today out of the meal target, fill in proportion (clamped between empty and full), and update immediately when meals are added or deleted, when the target changes, and after the app is reopened.
 - **FR-068**: The app MUST have an app icon showing the bear's head, used as the installed-app icon on iOS and Android and as the browser tab icon on web.
 - **FR-069**: The project MUST contain a single, current API implementation. Any older duplicate backend that nothing uses MUST be removed without changing any behavior, test, or documented setup step.
+- **FR-070**: The app MUST keep a person signed in across restarts until they log out. On launch it MUST confirm the stored sign-in with the server and renew it; it MUST discard a sign-in the server rejects, and MUST NOT discard it merely because the server is unreachable (it explains the problem and offers a retry). On phones the stored sign-in MUST use the device's secure storage.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -277,6 +279,7 @@ animation off and on, and log out from settings and back in.
 - **SC-026**: For targets 1 to 8, logging k meals (0 <= k <= target) shows exactly k out of target on the goal bar with a proportional fill, before and after reopening the app.
 - **SC-027**: 100% of registration screens show the password-safekeeping notice; 0 screens offer "forgot password"; 0 screens show a timezone setting.
 - **SC-028**: When reminders are not working, 0 of the reminder switches show an active state, and each shows the explanatory note.
+- **SC-029**: After signing in, closing and reopening the app 10 times in a row (server running) never asks for the password again; after "Log out" the next launch always shows the sign-in screen; with the server stopped the app shows the connection message rather than the sign-in screen.
 
 ## Assumptions
 
@@ -287,7 +290,7 @@ animation off and on, and log out from settings and back in.
 - A user's meal target is any positive whole number; the previous fixed range of one to eight is not used. The target applies to the user's local calendar day.
 - The seven-second post-save prompt offers to begin another meal entry; it does not discard or delay the saved meal.
 - A missed meal target means fewer logged meals than the user's target on a completed local calendar day. The bear's health appearance is fictional feedback, not a clinical assessment.
-- A qualifying streak day requires both the daily meal target and step target to be met. If step progress is missing, the day does not qualify.
+- A qualifying streak day requires the daily meal target to be met and, when the user has set a step target, that step target to be met too. With a step target set, a day with no step information does not qualify; with no step target, steps are ignored. (Decision 2026-10-25, so people who do not track steps can still build a streak.)
 - The energy balance is per local calendar day. The energy bar target is 10 points per planned meal; steps can raise the balance above the target, but the displayed bar remains full.
 - Step points are awarded per complete 1,000-step interval, not proportionally for partial intervals. If a step entry changes, the day's step points are recalculated from its current total.
 - Sudoku costs 5 energy points at game start, even if the user later abandons the game. Resuming or correcting that same game does not charge again. The energy balance may become negative; future meal and step points offset the deficit before the bar refills.
@@ -308,3 +311,4 @@ animation off and on, and log out from settings and back in.
 - Latest hands-on-testing changes (2026-10-25): timezone follows the device; the bear animation setting is a plain on/off (default on) and replaces the earlier follow-the-device behavior; log-out is a visible button in settings; password recovery and working device reminders are postponed (`future_considerations.md`, `notifications-setup.md`) and the app says so honestly.
 - The maximum number of reminder blocks is 12 per day. Default times are chosen from a fixed rhythm table (for example three meals at about 08:00, 12:30 and 18:30); the exact table is a planning detail.
 - The "Animate the bear" setting is stored on the device, not on the account.
+- Staying signed in uses a sign-in token that lasts 30 days and is renewed every time the app opens, so regular use never signs a person out. Logging out removes the token from the device; it is not revoked on the server and simply expires. On the web the token lives in the browser's local storage (no secure storage exists there).

@@ -118,6 +118,8 @@ export interface Profile {
   displayName: string;
   timezone: string;
   dailyMealGoal: number;
+  /** Daily step goal; null when not set. */
+  stepTarget: number | null;
   notificationsEnabled: boolean;
   reminderTimes: string[];
 }
@@ -136,7 +138,22 @@ export interface ProgressSummary {
   mealCount: number;
   goalMet: boolean;
   currentStreakDays: number;
-  lastSevenDays: { date: string; mealCount: number; goalMet: boolean }[];
+  /** Playful mood of the bear, from meals only. Not medical. */
+  bearHealth: "good" | "low";
+  /** Steps entered today; null means none were entered (not zero). */
+  steps: number | null;
+  stepTarget: number | null;
+  stepsMet: boolean;
+  energy: { points: number; target: number; fill: number };
+  lastSevenDays: { date: string; mealCount: number; goalMet: boolean; qualifies: boolean; steps: number | null; energyPoints: number }[];
+}
+
+export interface ActivityEntry {
+  _id: string;
+  type: string;
+  occurredAt: string;
+  stepCount?: number | null;
+  notes?: string | null;
 }
 
 export interface ApiError {
@@ -219,6 +236,7 @@ export function login(email: string, password: string) {
   return request<AuthSession>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
 }
 
+// Password recovery is postponed (FR-064): nothing in the app calls these two; the server routes are off by default.
 export function requestPasswordReset(email: string) {
   return request<{ message: string }>("/auth/password-reset/request", { method: "POST", body: JSON.stringify({ email }) });
 }
@@ -227,11 +245,16 @@ export function confirmPasswordReset(token: string, password: string) {
   return request<null>("/auth/password-reset/confirm", { method: "POST", body: JSON.stringify({ token: token.trim(), password }) });
 }
 
+/** Checks a stored sign-in with the server and returns the profile plus a fresh token. */
+export function refreshSession(accessToken: string) {
+  return request<AuthSession>("/auth/refresh", { method: "POST", headers: { Authorization: `Bearer ${accessToken}` } });
+}
+
 export function getProfile(accessToken: string) {
   return request<{ user: Profile }>("/profile", { headers: { Authorization: `Bearer ${accessToken}` } });
 }
 
-export function updateProfile(accessToken: string, changes: Partial<Pick<Profile, "displayName" | "timezone" | "dailyMealGoal" | "notificationsEnabled" | "reminderTimes">>) {
+export function updateProfile(accessToken: string, changes: Partial<Pick<Profile, "displayName" | "timezone" | "dailyMealGoal" | "stepTarget" | "notificationsEnabled" | "reminderTimes">>) {
   return request<{ user: Profile }>("/profile", {
     method: "PATCH",
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -260,6 +283,41 @@ export function deleteMeal(accessToken: string, mealId: string) {
   });
 }
 
+export function getActivities(token: string) {
+  return request<{ activities: ActivityEntry[] }>("/activities", { headers: { Authorization: `Bearer ${token}` } });
+}
+
+export function createActivity(token: string, entry: { type: string; occurredAt: string; stepCount?: number; notes?: string }) {
+  return request<{ activity: ActivityEntry }>("/activities", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(entry),
+  });
+}
+
+export function deleteActivity(token: string, activityId: string) {
+  return request<null>(`/activities/${activityId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+}
+
+export function startSudokuGame(token: string, gameId: string) {
+  return request<{ game: { clientId: string } }>("/sudoku/games", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ gameId }),
+  });
+}
+
+export function completeSudokuGame(token: string, gameId: string) {
+  return request<{ rewardPointsAwarded: number; points: number }>(`/sudoku/games/${gameId}/complete`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function getRewards(token: string) {
+  return request<{ points: number }>("/rewards", { headers: { Authorization: `Bearer ${token}` } });
+}
+
 export function getProgress(accessToken: string) {
   return request<{ progress: ProgressSummary }>("/progress", { headers: { Authorization: `Bearer ${accessToken}` } });
 }
@@ -272,4 +330,4 @@ export function errorMessage(error: ApiError, fallback: string) {
   return error.error?.message || error.message || fallback;
 }
 
-export default { register, login, requestPasswordReset, confirmPasswordReset, getProfile, updateProfile, getMeals, createMeal, deleteMeal, getProgress, deleteAccount };
+export default { register, login, refreshSession, requestPasswordReset, confirmPasswordReset, getProfile, updateProfile, getMeals, createMeal, deleteMeal, getProgress, getActivities, createActivity, deleteActivity, startSudokuGame, completeSudokuGame, getRewards, deleteAccount };
