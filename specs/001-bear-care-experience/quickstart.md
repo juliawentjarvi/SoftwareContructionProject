@@ -223,6 +223,8 @@ includes the server round trip that restores the sign-in).
 back, ten rounds; measured to the screen's own content, so server waits are excluded): feedback median 24 ms, slowest 40 ms, **100 of
 100 within 100 ms**; transition complete median 29 ms, slowest 49 ms, **100 of 100 within 300 ms**.
 
+**Stability session (T053, SC-017, SC-018), desktop browser, 30 minutes, 2026-10-25**: 805 screen changes while every minute the API was normal for 40 s, slowed by 1.5 s for 10 s and unreachable for 10 s. Result: **0 crashes, 0 uncaught page errors**, 0 missed clicks; 121 console error lines, all caused by the deliberately failed requests (the app showed its failure messages instead). Memory after warm-up (garbage collected before each reading): 9.7 to 11.3 MB, 10.4 MB at the start and at the end, slope 0 MB a minute, so no upward trend. Not measured on a phone.
+
 ## API reachability and endpoint switching
 
 1. Start the API from `server/` using `npm run dev`; verify `GET /health`.
