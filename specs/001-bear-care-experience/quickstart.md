@@ -194,6 +194,35 @@ Run on a phone in Expo Go and on a desktop browser. Record device, date and resu
   refreshing its retry was applied.
 - Not yet tried on a phone.
 
+### Measurements (T050-T052, 2026-10-25)
+
+Method and honest limits first: everything ran on one Windows laptop with the API (remote MongoDB Atlas database, real round trips to
+it) and the app's development bundle on the same machine, driven by headless Edge. That means no 100 ms network latency was added
+(the spec's target conditions), the app was the larger, unoptimised development build, and nothing was measured on a phone.
+Treat these as desktop-browser results; the phone numbers are still to be taken (T050, T051, T053).
+
+**API load test (T052, SC-015, SC-016)** - `server/scripts/load-test.mjs`, a separate API instance on port 3100 against the
+`bear_buddy_test` database; 25 isolated test users created straight in the database, each making 12 ordinary requests a minute for
+5 minutes (the mix: progress, meals list, create meal, profile, create activity, activities list, rewards):
+
+| Result | Target | Measured |
+|---|---|---|
+| Requests | about 1,500 | 1,499 (11.8 a minute per user) |
+| Failed requests | 0 | **0** (1,124 x 200, 375 x 201) |
+| Share completed within 1 s | at least 95% | **100%** |
+| p50 / p95 / p99 / max | n/a | 44 ms / 173 ms / 205 ms / 462 ms |
+| Slowest request type (p95) | n/a | progress, 196 ms (it counts meals, steps and games) |
+| Cross-user reads or unintended overwrites | none | **none** (every user's records matched what that user created; no foreign record ever appeared in a list) |
+
+All test records and users were deleted afterwards.
+
+**Launches (T050, SC-013), desktop browser, signed in, 20 launches**: median 560 ms, slowest 1.11 s, **20 of 20 within 3 s** (this
+includes the server round trip that restores the sign-in).
+
+**Interactions and transitions (T051, SC-014), desktop browser, 100 of each** (home to meal log, activity, Sudoku, shop, settings and
+back, ten rounds; measured to the screen's own content, so server waits are excluded): feedback median 24 ms, slowest 40 ms, **100 of
+100 within 100 ms**; transition complete median 29 ms, slowest 49 ms, **100 of 100 within 300 ms**.
+
 ## API reachability and endpoint switching
 
 1. Start the API from `server/` using `npm run dev`; verify `GET /health`.

@@ -50,3 +50,11 @@ Meal types are `breakfast`, `lunch`, `dinner`, and `snack`. Progress days use th
 ## Checks
 
 Run `npm test`, `npm run typecheck`, and `npm run build` from this directory.
+
+## Load test
+
+`scripts/load-test.mjs` runs 25 isolated test users (12 ordinary requests a minute each, 5 minutes by default) against a running API and
+reports failures, latency percentiles and whether any user ever saw another user's data. It creates its users directly in the test
+database and deletes them afterwards, and refuses to run unless the database name starts with `bear_buddy_test`. Start a separate API
+instance against that database (`PORT=3100 MONGODB_URI=<test database> node dist/index.js`), then run
+`TEST_MONGODB_URI=<test database> JWT_SECRET=<same secret> API_URL=http://localhost:3100 node scripts/load-test.mjs`.
