@@ -312,3 +312,4 @@ animation off and on, and log out from settings and back in.
 - The maximum number of reminder blocks is 12 per day. Default times are chosen from a fixed rhythm table (for example three meals at about 08:00, 12:30 and 18:30); the exact table is a planning detail.
 - The "Animate the bear" setting is stored on the device, not on the account.
 - Staying signed in uses a sign-in token that lasts 30 days and is renewed every time the app opens, so regular use never signs a person out. Logging out removes the token from the device; it is not revoked on the server and simply expires. On the web the token lives in the browser's local storage (no secure storage exists there).
+- Music and sound effects with a mute control (FR-027, FR-028) are postponed until audio files exist; backgrounds are delivered as unlockable scene themes. See `future_considerations.md` section 6.

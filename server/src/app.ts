@@ -10,7 +10,8 @@ import { z } from 'zod';
 import { ActivityEntry } from './models/activity-entry.js';
 import { MealEntry } from './models/meal-entry.js';
 import { SudokuGame } from './models/sudoku-game.js';
-import { REWARD_PER_SUDOKU_GAME } from './rewards.js';
+import { RewardUnlock } from './models/reward-unlock.js';
+import { CATALOG, DEFAULT_THEME, REWARD_PER_SUDOKU_GAME, findItem } from './rewards.js';
 import { reconcileReminderTimes, reminderCountFor } from './reminder-schedule.js';
 import { User } from './models/user.js';
 import { requireAuth } from './middleware/auth.js';
@@ -25,8 +26,10 @@ import {
   mealPatchSchema,
   mealsQuerySchema,
   profilePatchSchema,
+  profilePictureSchema,
   registerSchema,
   sudokuStartSchema,
+  unlockSchema,
 } from './validation.js';
 
 interface AppOptions {
@@ -68,6 +71,9 @@ function publicUser(user: InstanceType<typeof User>) {
     timezone: user.timezone,
     dailyMealGoal: user.dailyMealGoal,
     stepTarget: user.stepTarget ?? null,
+    hasProfilePicture: user.hasPicture === true,
+    selectedTheme: user.selectedTheme ?? DEFAULT_THEME,
+    selectedAccessory: user.selectedAccessory ?? null,
     notificationsEnabled: user.notificationsEnabled,
     reminderTimes: user.reminderTimes,
     createdAt: user.createdAt,
@@ -81,6 +87,26 @@ async function withMatchingReminders(user: InstanceType<typeof User>) {
     await user.save();
   }
   return user;
+}
+
+/** Reward balance: points earned from completed games minus points spent on unlocks and treats. Never negative. */
+async function rewardBalance(userId: Types.ObjectId, session?: mongoose.ClientSession) {
+  const [earned] = await SudokuGame.aggregate<{ points: number }>([
+    { $match: { userId } },
+    { $group: { _id: null, points: { $sum: '$rewardPoints' } } },
+  ]).session(session ?? null);
+  const [spent] = await RewardUnlock.aggregate<{ points: number }>([
+    { $match: { userId } },
+    { $group: { _id: null, points: { $sum: '$cost' } } },
+  ]).session(session ?? null);
+  return { earned: earned?.points ?? 0, spent: spent?.points ?? 0, points: (earned?.points ?? 0) - (spent?.points ?? 0) };
+}
+
+async function unlockedIds(userId: Types.ObjectId): Promise<string[]> {
+  const rows = await RewardUnlock.find({ userId }).lean();
+  const ids = new Set<string>([DEFAULT_THEME]);
+  for (const row of rows) if (findItem(row.itemId)?.kind !== 'treat') ids.add(row.itemId);
+  return [...ids];
 }
 
 function bearerToken(userId: string, secret: string, expiresIn: string): string {
@@ -107,7 +133,10 @@ export function createApp(options: AppOptions) {
   app.use(cors({
     origin: (origin, callback) => callback(null, !origin || options.allowedOrigins.includes(origin) || (options.allowDevOrigins === true && DEV_WEB_ORIGIN.test(origin))),
   }));
-  app.use(express.json({ limit: '16kb' }));
+  // Bodies are small everywhere, except the profile picture upload, which has its own larger (but still bounded) limit.
+  const smallJson = express.json({ limit: '16kb' });
+  const pictureJson = express.json({ limit: '200kb' });
+  app.use((request, response, next) => (request.path === '/api/profile/picture' && request.method === 'PUT' ? pictureJson : smallJson)(request, response, next));
 
   app.get('/health', (_request, response) => response.json({ status: 'ok' }));
 
@@ -190,6 +219,7 @@ export function createApp(options: AppOptions) {
       await MealEntry.deleteMany({ userId: request.auth!.userId }, { session });
       await ActivityEntry.deleteMany({ userId: request.auth!.userId }, { session });
       await SudokuGame.deleteMany({ userId: request.auth!.userId }, { session });
+      await RewardUnlock.deleteMany({ userId: request.auth!.userId }, { session });
       const user = await User.findByIdAndDelete(request.auth!.userId, { session });
       if (!user) throw new ApiError(404, 'NOT_FOUND', 'Profile not found');
     });
@@ -197,6 +227,22 @@ export function createApp(options: AppOptions) {
   });
 
   app.use('/api/profile', authenticate);
+  app.get('/api/profile/picture', async (request, response) => {
+    const user = await User.findById(request.auth!.userId).select('+profilePicture');
+    if (!user) throw new ApiError(404, 'NOT_FOUND', 'Profile not found');
+    response.json({ image: user.profilePicture ?? null });
+  });
+  app.put('/api/profile/picture', async (request, response) => {
+    const { image } = validated(profilePictureSchema, request.body);
+    const user = await User.findByIdAndUpdate(request.auth!.userId, { profilePicture: image, hasPicture: true }, { new: true });
+    if (!user) throw new ApiError(404, 'NOT_FOUND', 'Profile not found');
+    response.json({ user: publicUser(user) });
+  });
+  app.delete('/api/profile/picture', async (request, response) => {
+    const user = await User.findByIdAndUpdate(request.auth!.userId, { profilePicture: null, hasPicture: false });
+    if (!user) throw new ApiError(404, 'NOT_FOUND', 'Profile not found');
+    response.status(204).end();
+  });
   app.get('/api/profile', async (request, response) => {
     const user = await User.findById(request.auth!.userId);
     if (!user) throw new ApiError(404, 'NOT_FOUND', 'Profile not found');
@@ -216,6 +262,19 @@ export function createApp(options: AppOptions) {
     } else if (changes.dailyMealGoal !== undefined || current.reminderTimes.length !== reminderCountFor(current.dailyMealGoal)) {
       changes.reminderTimes = reconcileReminderTimes(current.reminderTimes, current.dailyMealGoal, goal);
     }
+    // A theme or appearance option can only be chosen once it is unlocked (the default theme always is).
+    const unlocked = changes.selectedTheme !== undefined || changes.selectedAccessory !== undefined
+      ? await unlockedIds(new Types.ObjectId(request.auth!.userId))
+      : [];
+    const choose = (id: string | null | undefined, kind: 'theme' | 'appearance') => {
+      if (id === null || id === undefined) return;
+      if (findItem(id)?.kind !== kind) throw new ApiError(400, 'INVALID_REQUEST', `Unknown ${kind} option`);
+      if (!unlocked.includes(id)) throw new ApiError(409, 'NOT_UNLOCKED', 'Unlock this item with reward points first');
+    };
+    choose(changes.selectedTheme, 'theme');
+    choose(changes.selectedAccessory, 'appearance');
+    if (changes.selectedTheme === null) changes.selectedTheme = DEFAULT_THEME;
+
     const user = await User.findByIdAndUpdate(request.auth!.userId, changes, { new: true, runValidators: true });
     if (!user) throw new ApiError(404, 'NOT_FOUND', 'Profile not found');
     response.json({ user: publicUser(user) });
@@ -336,19 +395,48 @@ export function createApp(options: AppOptions) {
       { new: true },
     ).lean();
     if (!first && !(await SudokuGame.exists({ userId, clientId: gameId }))) throw new ApiError(404, 'NOT_FOUND', 'Game not found');
-    const [total] = await SudokuGame.aggregate<{ points: number }>([
-      { $match: { userId } },
-      { $group: { _id: null, points: { $sum: '$rewardPoints' } } },
-    ]);
-    response.json({ rewardPointsAwarded: first ? REWARD_PER_SUDOKU_GAME : 0, points: total?.points ?? 0 });
+    response.json({ rewardPointsAwarded: first ? REWARD_PER_SUDOKU_GAME : 0, points: (await rewardBalance(userId)).points });
   });
 
   app.get('/api/rewards', authenticate, async (request, response) => {
-    const [total] = await SudokuGame.aggregate<{ points: number }>([
-      { $match: { userId: new Types.ObjectId(request.auth!.userId) } },
-      { $group: { _id: null, points: { $sum: '$rewardPoints' } } },
+    const userId = new Types.ObjectId(request.auth!.userId);
+    const [balance, unlocked, treatRows] = await Promise.all([
+      rewardBalance(userId),
+      unlockedIds(userId),
+      RewardUnlock.aggregate<{ _id: string; count: number }>([{ $match: { userId } }, { $group: { _id: '$itemId', count: { $sum: 1 } } }]),
     ]);
-    response.json({ points: total?.points ?? 0 });
+    const treats = Object.fromEntries(treatRows.filter((row) => findItem(row._id)?.kind === 'treat').map((row) => [row._id, row.count]));
+    response.json({ ...balance, unlocked, treats, catalog: CATALOG });
+  });
+
+  // Spend reward points. One-time items (appearance, themes) are keyed by item id; treats by an app-made purchase id, so a
+  // repeated request is recognised and never spends twice. The balance can never go below zero.
+  app.post('/api/rewards/unlock', authenticate, async (request, response) => {
+    const { itemId, purchaseId } = validated(unlockSchema, request.body);
+    const item = findItem(itemId)!;
+    if (item.kind === 'treat' && !purchaseId) throw new ApiError(400, 'INVALID_REQUEST', 'A treat purchase needs a purchase id');
+    const userId = new Types.ObjectId(request.auth!.userId);
+    const ref = item.kind === 'treat' ? purchaseId! : itemId;
+
+    if (item.cost === 0 || (await RewardUnlock.exists({ userId, ref }))) {
+      response.status(200).json({ ...(await rewardBalance(userId)), unlocked: await unlockedIds(userId) });
+      return;
+    }
+    try {
+      await mongoose.connection.transaction(async (session) => {
+        const { points } = await rewardBalance(userId, session);
+        if (points < item.cost) throw new ApiError(409, 'INSUFFICIENT_POINTS', 'Not enough reward points yet');
+        await RewardUnlock.create([{ userId, itemId, ref, cost: item.cost }], { session });
+        await User.updateOne({ _id: userId }, { $inc: { spendVersion: 1 } }, { session });
+      });
+    } catch (error) {
+      if (typeof error === 'object' && error !== null && 'code' in error && error.code === 11000) {
+        response.status(200).json({ ...(await rewardBalance(userId)), unlocked: await unlockedIds(userId) });
+        return;
+      }
+      throw error;
+    }
+    response.status(201).json({ ...(await rewardBalance(userId)), unlocked: await unlockedIds(userId) });
   });
 
   app.get('/api/progress', authenticate, async (request, response) => {
@@ -400,6 +488,10 @@ export function createApp(options: AppOptions) {
     }
     if (typeof error === 'object' && error !== null && 'code' in error && error.code === 11000) {
       response.status(409).json({ error: { code: 'ACCOUNT_EXISTS', message: 'An account with this email already exists' } });
+      return;
+    }
+    if (typeof error === 'object' && error !== null && 'type' in error && error.type === 'entity.too.large') {
+      response.status(413).json({ error: { code: 'PAYLOAD_TOO_LARGE', message: 'The request is too large' } });
       return;
     }
     if (error instanceof SyntaxError && 'body' in error) {

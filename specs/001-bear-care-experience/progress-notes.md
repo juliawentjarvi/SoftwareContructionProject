@@ -11,7 +11,7 @@ Authoritative requirements stay in `spec.md`; task status stays in `tasks.md`. L
 | 3 User Story 1 (account + meals) | Done (T017-T027); only manual phone/desktop checks remain |
 | 7 Increment 2 / User Story 4 (polish, honest settings) | Done in code and checked in a browser (T063-T083 except T071 phone check); **left: T084 and T088 phone checks**; staying signed in added (FR-070) |
 | 4 User Story 2 (reminders) | T028, T029, T031-T034 done; **left: T030 (screen-level tests), T035 (device checks, see `notifications-setup.md`)** |
-| 5 User Story 3 (steps, energy, Sudoku, rewards) | Bear animation done (T058-T061); steps, activity log and energy points done (T036, T037, T040-T044); streak, bear health and Sudoku with rewards earned are done (T038, T045-T047); **left: reward spending and customization (T039, T048), T049 checks, T062 device check, the heart-shaped rainbow streak indicator (FR-022/023)** |
+| 5 User Story 3 (steps, energy, Sudoku, rewards) | Bear animation done (T058-T061); steps, activity log and energy points done (T036, T037, T040-T044); streak, bear health and Sudoku with rewards earned are done (T038, T045-T047); the streak heart and the reward shop with treats, looks and themes are done (T039, T048 except music and mute); profile picture done (T089); **left: music and mute (postponed, see `future_considerations.md` section 6), T049 final checks, T062 device check** |
 | 6 Polish / performance | Not started (T050-T057) |
 
 ## Bugs found in manual testing (fixed 2026-10-23, verified in headless Edge against the real app)

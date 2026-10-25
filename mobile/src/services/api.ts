@@ -120,6 +120,11 @@ export interface Profile {
   dailyMealGoal: number;
   /** Daily step goal; null when not set. */
   stepTarget: number | null;
+  /** Chosen scene theme (id from the reward catalog) and bear appearance option. */
+  selectedTheme: string;
+  selectedAccessory: string | null;
+  /** True when a profile picture is stored; fetch it with getProfilePicture. */
+  hasProfilePicture: boolean;
   notificationsEnabled: boolean;
   reminderTimes: string[];
 }
@@ -146,6 +151,22 @@ export interface ProgressSummary {
   stepsMet: boolean;
   energy: { points: number; target: number; fill: number };
   lastSevenDays: { date: string; mealCount: number; goalMet: boolean; qualifies: boolean; steps: number | null; energyPoints: number }[];
+}
+
+export interface CatalogItem {
+  id: string;
+  kind: "treat" | "appearance" | "theme";
+  name: string;
+  cost: number;
+}
+
+export interface RewardsState {
+  points: number;
+  earned: number;
+  spent: number;
+  unlocked: string[];
+  treats: Record<string, number>;
+  catalog: CatalogItem[];
 }
 
 export interface ActivityEntry {
@@ -250,11 +271,23 @@ export function refreshSession(accessToken: string) {
   return request<AuthSession>("/auth/refresh", { method: "POST", headers: { Authorization: `Bearer ${accessToken}` } });
 }
 
+export function getProfilePicture(accessToken: string) {
+  return request<{ image: string | null }>("/profile/picture", { headers: { Authorization: `Bearer ${accessToken}` } });
+}
+
+export function setProfilePicture(accessToken: string, image: string) {
+  return request<{ user: Profile }>("/profile/picture", { method: "PUT", headers: { Authorization: `Bearer ${accessToken}` }, body: JSON.stringify({ image }) });
+}
+
+export function removeProfilePicture(accessToken: string) {
+  return request<null>("/profile/picture", { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } });
+}
+
 export function getProfile(accessToken: string) {
   return request<{ user: Profile }>("/profile", { headers: { Authorization: `Bearer ${accessToken}` } });
 }
 
-export function updateProfile(accessToken: string, changes: Partial<Pick<Profile, "displayName" | "timezone" | "dailyMealGoal" | "stepTarget" | "notificationsEnabled" | "reminderTimes">>) {
+export function updateProfile(accessToken: string, changes: Partial<Pick<Profile, "displayName" | "timezone" | "dailyMealGoal" | "stepTarget" | "selectedTheme" | "selectedAccessory" | "notificationsEnabled" | "reminderTimes">>) {
   return request<{ user: Profile }>("/profile", {
     method: "PATCH",
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -315,7 +348,16 @@ export function completeSudokuGame(token: string, gameId: string) {
 }
 
 export function getRewards(token: string) {
-  return request<{ points: number }>("/rewards", { headers: { Authorization: `Bearer ${token}` } });
+  return request<RewardsState>("/rewards", { headers: { Authorization: `Bearer ${token}` } });
+}
+
+/** Spend reward points. Treats need a `purchaseId` (made once per tap) so a retry can never buy twice. */
+export function unlockItem(token: string, itemId: string, purchaseId?: string) {
+  return request<{ points: number; unlocked: string[] }>("/rewards/unlock", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ itemId, ...(purchaseId ? { purchaseId } : {}) }),
+  });
 }
 
 export function getProgress(accessToken: string) {
@@ -330,4 +372,4 @@ export function errorMessage(error: ApiError, fallback: string) {
   return error.error?.message || error.message || fallback;
 }
 
-export default { register, login, refreshSession, requestPasswordReset, confirmPasswordReset, getProfile, updateProfile, getMeals, createMeal, deleteMeal, getProgress, getActivities, createActivity, deleteActivity, startSudokuGame, completeSudokuGame, getRewards, deleteAccount };
+export default { register, login, refreshSession, getProfilePicture, setProfilePicture, removeProfilePicture, requestPasswordReset, confirmPasswordReset, getProfile, updateProfile, getMeals, createMeal, deleteMeal, getProgress, getActivities, createActivity, deleteActivity, startSudokuGame, completeSudokuGame, getRewards, unlockItem, deleteAccount };

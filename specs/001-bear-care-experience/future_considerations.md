@@ -188,3 +188,58 @@ offline logging means changing those requirements first (run `/speckit-specify`)
 - Add acceptance scenarios and success criteria (for example: a meal logged in airplane mode appears with a "waiting" label, and
   after reconnecting exactly one copy exists on the server).
 - Decide which functions are in scope first (meals only is the smallest useful version).
+
+## 6. Music, sound effects and the mute control (FR-027, FR-028)
+
+**Status: not built, postponed.** The shop sells treats, looks and background themes (the "backgrounds" half of FR-027), but there is
+no music or sound yet, so there is deliberately no mute switch either: a switch that mutes nothing would be pretending, like the
+reminder switch we fixed. Needed to build it:
+
+- Audio files (music loops, a few sound effects such as a chime for solving Sudoku and a happy sound for treats) with a licence
+  that allows use in the app; a decision whether music is part of the shop (unlockable tracks) or free.
+- An audio library for Expo (`expo-audio`), tested in Expo Go on both phones and in the browser (browsers block sound until the
+  person has tapped something, so music starts after the first tap).
+- A single sound on/off setting kept on the device, off by default or on? (decide), applied to music and effects.
+- FR-028: muting must not touch meal reminders or the saved notification setting; keep sound preferences and the reminder switch
+  completely separate in code, and add a test for it.
+- Where it should live in settings: next to "Animate the bear".
+
+## 7. Reading steps from the phone's health app (instead of typing them)
+
+**Status: not built, postponed (decided 2026-10-25).** Steps are entered by hand (FR-012/013; the specification says automatic
+collection from a health service is outside this feature). Manual entry also stays as the fallback, because the web version can never
+read a health app and not everyone wears or carries the data.
+
+### What is possible
+
+| Route | Works in | What it reads | Needs |
+|---|---|---|---|
+| Apple Health (HealthKit) | iPhone, **development build only** (not Expo Go) | Real daily totals, including Apple Watch and other apps | A native HealthKit module (a third-party Expo module, since there is no official one in Expo), the HealthKit capability and a usage text in the app config, an EAS development build and an Apple Developer account (see `notifications-setup.md`), the person's permission |
+| Android Health Connect | Android, **development build only** | Daily step totals from the phone and other apps that write to Health Connect | A native Health Connect module, permissions declared in the app, a Play Store data-safety/health declaration when published, Health Connect installed (built in on recent Android) |
+| The phone's step counter (`expo-sensors` Pedometer) | **Expo Go**, iPhone | Today's steps from the phone's own motion coprocessor, up to 7 days back; not Apple Watch data | Nothing extra. Android only counts live while the app is running (no history), so it is not reliable there. Web: not available |
+| Manual entry (today) | Everywhere | What the person types | Nothing |
+
+Each module's compatibility with Expo SDK 58 has to be checked when it is time to build this; the search done on 2026-10-25 found
+only third-party modules.
+
+### Note on Apple being easier
+
+Apple's side is the simpler one: HealthKit is a single, well-documented system with one permission prompt and consistent step totals,
+which is why it felt easy in your earlier vibe-coded app (as you described it). Android's Health Connect has more moving parts
+(separate app on older versions, per-data-type permissions, a store review of health data use). So when this is picked up, do
+**iPhone first** (HealthKit through a development build, or the pedometer shortcut if a development build is still unwanted),
+keep manual entry for everyone else, and add Android afterwards.
+
+### How it would fit the existing app
+
+- A step entry stays a normal activity record, so the energy points (+5 per full 1,000 steps), the step target, the streak and
+  the goal display keep working unchanged.
+- Synced steps should replace the previous synced total for that day (one "Phone steps" entry per day), not add to it each time,
+  and never overwrite what the person typed: show both and let the server sum them, or ask which to keep.
+- Sync on opening the app and on a "Refresh steps" button; tell the person plainly when permission was refused, and never show
+  "0 steps" for "no permission or no data" (the app already distinguishes missing from zero).
+- Specification: replace the "steps are entered by the user" assumption, add acceptance scenarios for permission granted, denied,
+  revoked, and a day with no data; add a success criterion (for example, steps shown within 5 seconds of opening the app on a
+  phone with Health data).
+- Privacy: health data is read on the phone and only the daily total is sent to the account; say so in the permission text and in
+  the app.

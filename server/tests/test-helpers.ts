@@ -4,6 +4,7 @@ import mongoose, { type Types } from 'mongoose';
 import 'dotenv/config';
 import { ActivityEntry } from '../src/models/activity-entry.js';
 import { MealEntry } from '../src/models/meal-entry.js';
+import { RewardUnlock } from '../src/models/reward-unlock.js';
 import { SudokuGame } from '../src/models/sudoku-game.js';
 import { User } from '../src/models/user.js';
 
@@ -56,6 +57,7 @@ export async function cleanTestAccounts(userIds: Types.ObjectId[]): Promise<void
   await MealEntry.deleteMany({ userId: { $in: userIds } });
   await ActivityEntry.deleteMany({ userId: { $in: userIds } });
   await SudokuGame.deleteMany({ userId: { $in: userIds } });
+  await RewardUnlock.deleteMany({ userId: { $in: userIds } });
   await User.deleteMany({ _id: { $in: userIds } });
 }
 

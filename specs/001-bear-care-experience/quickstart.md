@@ -166,6 +166,25 @@ Run on a phone in Expo Go and on a desktop browser. Record device, date and resu
   game and 10 reward points on the server.
 - Not yet checked on a phone (puzzle generation speed and touch size of the grid and number pad).
 
+### Phase 5 slice 3 record (T039, T048 partly, FR-022/023, 2026-10-25)
+
+- Server 137 tests (rewards: catalog, spend once, no overspending even with three simultaneous requests, treat purchases by
+  purchase id, equip only after unlock, ownership and energy separation) and mobile 114 tests, typechecks, bundles OK.
+- In headless Edge against the real API: after earning 30 points the shop showed them; unlocking the party hat took them to 0 and
+  offered "Wear"; wearing saved the accessory on the server; the streak heart is on the home screen. Rendered all three looks
+  over the bear to check their placement.
+- Unlocking takes about a second or two (it runs as a database transaction); the button shows "..." meanwhile.
+- Not yet seen on a phone: the heartbeat motion, how the looks sit on the bear while it animates, and the theme colours (the
+  night theme in particular for text contrast).
+
+### Profile picture record (T089, 2026-10-25)
+
+- Server 149 tests (validation incl. fake-image and oversize cases, owner-only access, replace and remove), mobile 119 tests,
+  typechecks, `expo-doctor` 20/20, bundles OK.
+- In headless Edge against the real API: chose a 1024-pixel photo in settings; it was cropped and shrunk to a 4.9 KB JPEG and
+  stored; it showed in the header after reloading (still signed in); removing it brought the initial back and the server
+  returned no image. Not yet tried on a phone (the system photo picker and permission wording).
+
 ## API reachability and endpoint switching
 
 1. Start the API from `server/` using `npm run dev`; verify `GET /health`.

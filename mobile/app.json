@@ -29,7 +29,13 @@
           "color": "#315b49"
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Bear Care uses your photos only to let you choose a profile picture."
+        }
+      ]
     ],
     "icon": "./assets/icon.png",
     "web": {

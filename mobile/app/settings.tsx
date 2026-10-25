@@ -6,6 +6,8 @@ import { ANIMATE_DESCRIPTION } from "../src/services/copy";
 import { DEVICE_CONTROLS_NOTE, disableMealReminders, reminderSupport } from "../src/services/reminders";
 import { checkReminderTimes, saveReminderTimes, setRemindersEnabled } from "../src/services/reminderSettings";
 import ApiConnectionSettings from "../src/components/ApiConnectionSettings";
+import Avatar from "../src/components/Avatar";
+import { pickProfilePicture } from "../src/services/profilePicture";
 
 interface SettingsScreenProps {
 	session: AuthSession;
@@ -15,9 +17,11 @@ interface SettingsScreenProps {
 	onDeviceReminders: (scheduled: boolean) => void;
 	onAccountDeleted: () => void;
 	onLogout: () => Promise<void>;
+	picture: string | null;
+	onPictureChanged: (image: string | null) => void;
 }
 
-export default function SettingsScreen({ session, onProfileChanged, deviceReminders, onDeviceReminders, onAccountDeleted, onLogout }: SettingsScreenProps) {
+export default function SettingsScreen({ session, onProfileChanged, deviceReminders, onDeviceReminders, onAccountDeleted, onLogout, picture, onPictureChanged }: SettingsScreenProps) {
 	const support = reminderSupport();
 	const [profile, setProfile] = useState(session.user);
 	const [times, setTimes] = useState(session.user.reminderTimes);
@@ -111,6 +115,30 @@ export default function SettingsScreen({ session, onProfileChanged, deviceRemind
 	useEffect(() => { void getAnimate().then(setAnimateState); }, []);
 	const [loggingOut, setLoggingOut] = useState(false);
 
+	const choosePicture = async () => {
+		setError(null);
+		const picked = await pickProfilePicture();
+		if (!picked.ok) { if (picked.reason !== "cancelled") setError(picked.message); return; }
+		setIsSaving(true);
+		const result = await api.setProfilePicture(session.accessToken, picked.dataUrl);
+		setIsSaving(false);
+		if (!result.ok) { setError(errorMessage(result.body, "The picture couldn't be saved. Try again.")); return; }
+		onPictureChanged(picked.dataUrl);
+		setProfile(result.body.user);
+		onProfileChanged(result.body.user);
+	};
+
+	const removePicture = async () => {
+		setIsSaving(true);
+		const result = await api.removeProfilePicture(session.accessToken);
+		setIsSaving(false);
+		if (!result.ok) { setError(errorMessage(result.body, "The picture couldn't be removed. Try again.")); return; }
+		onPictureChanged(null);
+		const next = { ...profile, hasProfilePicture: false };
+		setProfile(next);
+		onProfileChanged(next);
+	};
+
 	const logOut = async () => {
 		setLoggingOut(true);
 		await onLogout();
@@ -149,6 +177,13 @@ export default function SettingsScreen({ session, onProfileChanged, deviceRemind
 
 			<View style={styles.section}>
 				<Text style={styles.sectionTitle}>Profile</Text>
+				<View style={styles.pictureRow}>
+					<Avatar image={picture} name={profile.displayName} size={72} />
+					<View style={styles.pictureButtons}>
+						<Pressable accessibilityRole="button" accessibilityLabel="Choose profile picture" onPress={() => void choosePicture()} disabled={isSaving} style={styles.secondaryButton}><Text style={styles.secondaryButtonText}>{picture ? "Change picture" : "Choose a picture"}</Text></Pressable>
+						{picture ? <Pressable accessibilityRole="button" accessibilityLabel="Remove profile picture" onPress={() => void removePicture()} disabled={isSaving} style={styles.deleteLink}><Text style={styles.deleteLinkText}>Remove picture</Text></Pressable> : null}
+					</View>
+				</View>
 				<Text style={styles.label}>Display name</Text>
 				<TextInput accessibilityLabel="Display name" style={styles.input} value={profile.displayName} onChangeText={(displayName) => setProfile({ ...profile, displayName })} onBlur={() => void save({ displayName: profile.displayName })} maxLength={60} />
 				<Text style={styles.label}>Meals you aim for each day</Text>
@@ -204,6 +239,8 @@ export default function SettingsScreen({ session, onProfileChanged, deviceRemind
 }
 
 const styles = StyleSheet.create({
+	pictureRow: { flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 16 },
+	pictureButtons: { flex: 1, alignItems: "flex-start" },
 	logoutBox: { marginBottom: 18 },
 	logoutButton: { minHeight: 52, backgroundColor: "#315b49", borderRadius: 8, alignItems: "center", justifyContent: "center" },
 	logoutText: { color: "#fff", fontSize: 17, fontWeight: "800" },

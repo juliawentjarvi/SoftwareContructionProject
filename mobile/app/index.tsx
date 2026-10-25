@@ -5,6 +5,10 @@ import RegisterScreen from "./register";
 import MealsScreen from "./meals";
 import ActivityScreen from "./activity";
 import SudokuScreen from "./sudoku";
+import RewardsScreen from "./rewards";
+import StreakHeart from "../src/components/StreakHeart";
+import Avatar from "../src/components/Avatar";
+import { sceneTheme } from "../src/services/themes";
 import SettingsScreen from "./settings";
 import { Bear } from "../src/components/bear/Bear";
 import api, { AuthSession, errorMessage, Profile, ProgressSummary } from "../src/services/api";
@@ -18,7 +22,7 @@ import { syncTimezone } from "../src/services/timezoneSync";
 import { endSession } from "../src/services/session";
 import { restoreSession } from "../src/services/restoreSession";
 
-type AppView = "home" | "meals" | "activity" | "sudoku" | "settings";
+type AppView = "home" | "meals" | "activity" | "sudoku" | "rewards" | "settings";
 
 export default function App() {
 	const [session, setSession] = useState<AuthSession | null>(null);
@@ -30,6 +34,8 @@ export default function App() {
 	const [emoteSignal, setEmoteSignal] = useState(0);
 	const [savedOffer, setSavedOffer] = useState(false);
 	const [progressVersion, setProgressVersion] = useState(0);
+	const [picture, setPicture] = useState<string | null>(null);
+	const [heartBeat, setHeartBeat] = useState(0); // bumped when the app is entered so the streak heart beats
 	// Whether this device really has the reminders scheduled; the saved preference alone does not mean it does.
 	const [deviceReminders, setDeviceReminders] = useState(false);
 
@@ -70,6 +76,7 @@ export default function App() {
 		await endSession();
 		setSession(null);
 		setProgress(null);
+		setPicture(null);
 		setDeviceReminders(false);
 		setSavedOffer(false);
 		setFedAt(null);
@@ -80,6 +87,9 @@ export default function App() {
 
 	const authenticate = async (nextSession: AuthSession) => {
 		setSession(nextSession);
+		setHeartBeat((n) => n + 1);
+		setPicture(null);
+		if (nextSession.user.hasProfilePicture) void api.getProfilePicture(nextSession.accessToken).then((result) => { if (result.ok) setPicture(result.body.image); });
 		void followDeviceTimezone(nextSession);
 		void saveAccessToken(nextSession.accessToken); // lets a reminder's "Log a meal" action save while the app is closed
 		setView("home");
@@ -157,7 +167,7 @@ export default function App() {
 	const mealCount = progress?.mealCount ?? 0;
 	const mealGoal = progress?.dailyMealGoal ?? session.user.dailyMealGoal;
 	const energy = goalBarFill(mealCount, mealGoal);
-	const care = Math.min(100, (progress?.currentStreakDays ?? 0) / 7 * 100);
+	const theme = sceneTheme(session.user.selectedTheme);
 
 	return (
 		<View style={styles.app}>
@@ -171,14 +181,15 @@ export default function App() {
 						<Text style={styles.reminderLabel}>Remind</Text>
 						<Switch value={session.user.notificationsEnabled && deviceReminders} onValueChange={(enabled) => void toggleReminders(enabled)} accessibilityLabel="Toggle meal reminders" />
 					</View>
-					<Pressable accessibilityRole="button" accessibilityLabel="Profile and settings" onPress={() => setView("settings")} style={styles.profileButton}><Text style={styles.profileInitial}>{session.user.displayName.slice(0, 1).toUpperCase()}</Text></Pressable>
+					<Pressable accessibilityRole="button" accessibilityLabel="Profile and settings" onPress={() => setView("settings")} style={styles.profileButton}><Avatar image={picture} name={session.user.displayName} size={40} /></Pressable>
 				</View>
 			</View>
 
 			{view === "meals" ? <View style={styles.page}><Pressable onPress={() => setView("home")} style={styles.back}><Text style={styles.backText}>‹  Home</Text></Pressable><MealsScreen token={session.accessToken} timezone={session.user.timezone} onMealSaved={() => { setFedAt(Date.now()); setSavedOffer(true); setView("home"); }} /></View> : null}
 			{view === "activity" ? <View style={styles.page}><Pressable onPress={() => setView("home")} style={styles.back}><Text style={styles.backText}>‹  Home</Text></Pressable><ActivityScreen token={session.accessToken} timezone={session.user.timezone} onSaved={() => undefined} /></View> : null}
 			{view === "sudoku" ? <View style={styles.page}><Pressable onPress={() => setView("home")} style={styles.back}><Text style={styles.backText}>‹  Home</Text></Pressable><SudokuScreen token={session.accessToken} onChanged={() => setProgressVersion((n) => n + 1)} /></View> : null}
-			{view === "settings" ? <View style={styles.page}><Pressable onPress={() => setView("home")} style={styles.back}><Text style={styles.backText}>‹  Home</Text></Pressable><SettingsScreen session={session} onProfileChanged={updateProfile} deviceReminders={deviceReminders} onDeviceReminders={setDeviceReminders} onLogout={logOut} onAccountDeleted={() => { void clearAccessToken(); setSession(null); setView("home"); }} /></View> : null}
+			{view === "rewards" ? <View style={styles.page}><Pressable onPress={() => setView("home")} style={styles.back}><Text style={styles.backText}>‹  Home</Text></Pressable><RewardsScreen token={session.accessToken} user={session.user} onProfileChanged={updateProfile} onTreat={() => { setFedAt(Date.now()); setView("home"); }} /></View> : null}
+			{view === "settings" ? <View style={styles.page}><Pressable onPress={() => setView("home")} style={styles.back}><Text style={styles.backText}>‹  Home</Text></Pressable><SettingsScreen session={session} onProfileChanged={updateProfile} deviceReminders={deviceReminders} onDeviceReminders={setDeviceReminders} onLogout={logOut} picture={picture} onPictureChanged={setPicture} onAccountDeleted={() => { void clearAccessToken(); setSession(null); setView("home"); }} /></View> : null}
 			{view === "home" ? <ScrollView style={styles.home} contentContainerStyle={styles.homeContent}>
 				{savedOffer ? <View accessibilityRole="alert" style={styles.savedOffer}>
 					<Text style={styles.savedText}>Meal saved.</Text>
@@ -191,7 +202,7 @@ export default function App() {
 					</View>
 					<View style={styles.status}>
 						<View style={styles.statusHeading}><Text style={styles.statusLabel}>CARE STREAK</Text><Text style={styles.statusValue}>{progress?.currentStreakDays ?? 0} days</Text></View>
-						<View style={styles.track}><View style={[styles.fill, styles.careFill, { width: `${care}%` }]} /></View>
+						<View style={styles.heartRow}><StreakHeart days={progress?.currentStreakDays ?? 0} beatKey={heartBeat} /></View>
 					</View>
 				</View>
 
@@ -206,14 +217,14 @@ export default function App() {
 					</View>
 				</View>
 
-				<View style={styles.scene}>
-					<View style={styles.sceneTop}><Text style={styles.sceneOverline}>TODAY'S LITTLE CHECK-IN</Text><Text style={styles.sceneDate}>{progress?.date ?? ""}</Text></View>
+				<View style={[styles.scene, { backgroundColor: theme.background, borderColor: theme.border }]}>
+					<View style={styles.sceneTop}><Text style={[styles.sceneOverline, { color: theme.mutedText }]}>TODAY'S LITTLE CHECK-IN</Text><Text style={[styles.sceneDate, { color: theme.mutedText }]}>{progress?.date ?? ""}</Text></View>
 					<View style={styles.playArea}>
 						<Pressable onPress={() => setView("meals")} accessibilityRole="button" style={[styles.sceneObject, styles.bowl]}><Text style={styles.objectIcon}>◡</Text><Text style={styles.objectLabel}>Food bowl</Text></Pressable>
-						<View style={styles.bearArea}><Bear height={250} fedAt={fedAt} emoteSignal={emoteSignal} /><Text style={styles.bearCaption}>{progress?.goalMet ? "You did enough today." : progress?.bearHealth === "low" ? "I'm a little low on energy. A small meal and a pause would cheer me up." : "I'm here for your next pause."}</Text></View>
+						<View style={styles.bearArea}><Bear height={250} fedAt={fedAt} emoteSignal={emoteSignal} accessory={session.user.selectedAccessory} /><Text style={[styles.bearCaption, { color: theme.mutedText }]}>{progress?.goalMet ? "You did enough today." : progress?.bearHealth === "low" ? "I'm a little low on energy. A small meal and a pause would cheer me up." : "I'm here for your next pause."}</Text></View>
 						<Pressable onPress={() => { setEmoteSignal((n) => n + 1); setView("sudoku"); }} accessibilityRole="button" style={[styles.sceneObject, styles.sudoku]}><Text style={styles.sudokuGrid}>□ □ □</Text><Text style={styles.objectLabel}>Sudoku</Text></Pressable>
 					</View>
-					<View style={styles.sceneFoot}><Text style={styles.footText}>{progress?.goalMet ? "Today's meal goal is complete." : `${Math.max(0, mealGoal - mealCount)} meal${mealGoal - mealCount === 1 ? "" : "s"} to reach today's goal.`}</Text></View>
+					<View style={[styles.sceneFoot, { borderColor: theme.border }]}><Text style={[styles.footText, { color: theme.text }]}>{progress?.goalMet ? "Today's meal goal is complete." : `${Math.max(0, mealGoal - mealCount)} meal${mealGoal - mealCount === 1 ? "" : "s"} to reach today's goal.`}</Text></View>
 				</View>
 
 				<View style={styles.logSection}>
@@ -221,6 +232,7 @@ export default function App() {
 					{progress?.lastSevenDays.map((day) => <View key={day.date} style={styles.dayRow}><Text style={styles.dayDate}>{new Date(`${day.date}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</Text><View style={styles.dayTrack}><View style={[styles.dayFill, { width: `${Math.min(100, day.mealCount / mealGoal * 100)}%` }]} /></View><Text style={styles.dayCount}>{day.mealCount}/{mealGoal}</Text></View>)}
 				</View>
 
+				<Pressable accessibilityRole="button" style={[styles.primaryButton, styles.shopAction]} onPress={() => setView("rewards")}><Text style={styles.primaryButtonText}>Bear shop</Text><Text style={styles.buttonArrow}>→</Text></Pressable>
 				<Pressable accessibilityRole="button" style={[styles.primaryButton, styles.secondaryAction]} onPress={() => setView("activity")}><Text style={styles.primaryButtonText}>Log steps or activity</Text><Text style={styles.buttonArrow}>→</Text></Pressable>
 				<Pressable accessibilityRole="button" style={styles.primaryButton} onPress={() => setView("meals")}><Text style={styles.primaryButtonText}>Log a meal</Text><Text style={styles.buttonArrow}>→</Text></Pressable>
 				{error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
@@ -261,6 +273,8 @@ const styles = StyleSheet.create({
 	fill: { height: "100%", borderRadius: 5 },
 	energyPointsFill: { backgroundColor: "#d9a441" },
 	stepsText: { color: "#1d2923", fontSize: 12, fontWeight: "600" },
+	heartRow: { alignItems: "flex-start", paddingTop: 2 },
+	shopAction: { backgroundColor: "#d9a441", marginBottom: 10 },
 	secondaryAction: { backgroundColor: "#315b49", marginBottom: 10 },
 	energyFill: { backgroundColor: "#c5523e" },
 	careFill: { backgroundColor: "#5f9275" },

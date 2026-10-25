@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api, { errorMessage } from "./api";
+import { uuid4 } from "./ids";
 import { Board, generatePuzzle } from "./sudoku";
 
 const KEY = "bear-care-sudoku-game";
@@ -21,13 +22,6 @@ export interface SudokuDeps {
 	complete: (token: string, gameId: string) => Promise<{ ok: true; status: number; points: number; awarded: number } | { ok: false; status: number; message: string }>;
 	generate: () => { puzzle: Board; solution: Board };
 	newId: () => string;
-}
-
-function uuid4(): string {
-	return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-		const r = Math.floor(Math.random() * 16);
-		return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
-	});
 }
 
 export const realSudokuDeps: SudokuDeps = {

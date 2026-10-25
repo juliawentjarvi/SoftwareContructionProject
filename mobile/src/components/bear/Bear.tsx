@@ -3,7 +3,8 @@ import { Pressable, View } from "react-native";
 import Svg from "react-native-svg";
 import { BearArt } from "./BearArt.generated";
 import { BORED_BEHAVIORS, BearAnimator, Clip, TAP_REACTIONS, blink, earWave, feedJump, hearts } from "./animation";
-import { PoseStoreContext } from "./Part";
+import { Part, PoseStoreContext } from "./Part";
+import { Accessory } from "./Accessory";
 import { PoseStore } from "./poseStore";
 import { idlePolicy } from "./idlePolicy";
 import { getAnimate } from "../../services/bearPrefs";
@@ -22,11 +23,13 @@ export type BearProps = {
 	fedAt?: number | null;
 	/** Increment to play one of the tap reactions, e.g. when the game is clicked. */
 	emoteSignal?: number;
+	/** Appearance option worn by the bear (id from the reward catalog), or none. */
+	accessory?: string | null;
 	/** Seconds without interaction before the bear gets bored. */
 	boredAfterSeconds?: number;
 };
 
-export function Bear({ height = 250, fedAt = null, emoteSignal = 0, boredAfterSeconds = 30 }: BearProps) {
+export function Bear({ height = 250, fedAt = null, emoteSignal = 0, accessory = null, boredAfterSeconds = 30 }: BearProps) {
 	const animator = useRef(new BearAnimator()).current;
 	const store = useMemo(() => new PoseStore(), []);
 	const policy = useRef(idlePolicy(true));
@@ -108,6 +111,7 @@ export function Bear({ height = 250, fedAt = null, emoteSignal = 0, boredAfterSe
 				<PoseStoreContext.Provider value={store}>
 					<Svg width="100%" height="100%" viewBox={VIEW_BOX} fillRule="evenodd">
 						<BearArt />
+						{accessory ? <Part name="headAll"><Accessory kind={accessory} /></Part> : null}
 					</Svg>
 				</PoseStoreContext.Provider>
 			</View>

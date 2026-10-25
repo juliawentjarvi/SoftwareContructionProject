@@ -163,3 +163,27 @@ under the expected-load test and verify there are no cross-user reads or uninten
 - **`GET /api/rewards`** -> `{ "points" }`, the reward balance. Reward points and energy are separate; neither changes the other.
 - The puzzle itself is made and checked on the phone; the server records only start and completion (it does not verify the
   solution), which is acceptable for a private wellness app but would need a server-held puzzle if rewards ever had real value.
+
+## Phase 5 slice 3 additions (2026-10-25): reward shop
+
+- **`GET /api/rewards`** -> `{ points, earned, spent, unlocked: [itemId...], treats: { itemId: timesBought }, catalog: [{ id, kind, name, cost }] }`.
+  `points = earned (completed Sudoku games) - spent`, never negative. `kind` is `treat`, `appearance` or `theme`.
+- **`POST /api/rewards/unlock`** `{ itemId, purchaseId? }`: `201` when points were spent, `200` when the request was a repeat (nothing
+  spent again), `409 INSUFFICIENT_POINTS` when the balance is too low (nothing changes), `400` for an unknown item or a treat
+  without a `purchaseId`. Appearance options and themes are unlocked once (keyed by item id); a treat is bought each time with a
+  new app-made `purchaseId`, so a retry of the same purchase never spends twice. Simultaneous requests cannot overspend.
+- **`PATCH /api/profile`** accepts `selectedTheme` (a theme id, `null` = default `meadow`) and `selectedAccessory` (an appearance id
+  or `null` for none); choosing something not unlocked gives `409 NOT_UNLOCKED`, the wrong kind gives `400`. Profiles return both.
+- The default theme `meadow` is free and always unlocked. Catalog prices (points): treats 5/5/10, bow tie 20, party hat 30,
+  sunglasses 40, themes sunset 20, starry night 30, berry patch 40.
+- `POST /api/sudoku/games/{id}/complete` now returns the balance after spending.
+
+## Profile picture (2026-10-25)
+
+- `PUT /api/profile/picture` `{ "image": "data:image/(png|jpeg|webp);base64,..." }` -> `200 { user }`. The image must be at most
+  120 KB once decoded and its first bytes must match the stated type; otherwise `400 INVALID_REQUEST`. This is the only route
+  with a larger body limit (200 KB); anything larger is `413 PAYLOAD_TOO_LARGE`; every other route keeps the 16 KB limit.
+- `GET /api/profile/picture` -> `{ "image": "<data URL>" | null }`; `DELETE /api/profile/picture` -> `204`.
+- Profile responses carry only `hasProfilePicture` (never the image), so sign-in and refresh stay small. Only the owner can read
+  their picture, and deleting the account removes it.
+- Oversized request bodies on any route now answer `413` in the standard error format (previously a `500`).

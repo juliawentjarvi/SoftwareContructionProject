@@ -129,7 +129,7 @@ Verify Sudoku conflict/highlighting/finish behavior and independent reward-point
 - [X] T036 [P] [US3] Add activity and progress tests in `server/tests/activity.test.ts` and `server/tests/progress.test.ts` for owner isolation, local-day boundaries, missing step data, and positive targets.
 - [X] T037 [P] [US3] Add energy-point calculation tests in `server/tests/energy.test.ts` for +10 per meal, +5 per complete 1,000-step interval, −5 once per started game, negative balances, daily reset, and correction/deletion recalculation.
 - [X] T038 [P] [US3] Add Sudoku board rule tests in `mobile/src/services/sudoku.test.ts` for one digit per 3x3 box, duplicate conflicts in row/column/box, correct full-board win, incorrect full-board continuation, and one-time game charge.
-- [ ] T039 [P] [US3] *(started: one reward per completed game and energy/reward separation are tested in `server/tests/sudoku.test.ts`; unlock spending and non-negative balance remain)* Add reward-ledger tests in `server/tests/rewards.test.ts` for non-negative balances, one award per game completion, one spend per unlock, and separation of energy points from reward points.
+- [X] T039 [P] [US3] *(`server/tests/rewards.test.ts` and `server/tests/sudoku.test.ts`)* Add reward-ledger tests in `server/tests/rewards.test.ts` for non-negative balances, one award per game completion, one spend per unlock, and separation of energy points from reward points.
 
 ### Implementation for User Story 3
 
@@ -141,15 +141,15 @@ Verify Sudoku conflict/highlighting/finish behavior and independent reward-point
 - [X] T045 [US3] *(decided 2026-10-25: steps count only when a step target is set; bear health is low after two completed days below the meal target)* Implement daily goal streak and fictional bear-health presentation in `server/src/progress.ts` and `mobile/app/index.tsx`; only qualify streaks when both meal and step targets are met and lower playful health only after two completed missed-meal days.
 - [X] T046 [US3] Implement Sudoku gameplay and validation in `mobile/app/sudoku.tsx` and `mobile/src/services/sudoku.ts`; disable a digit only when it appears in all nine 3x3 boxes, mark row/column/box duplicates red, and allow correction after an incorrect full board.
 - [X] T047 [US3] Charge the Sudoku start once and award completion reward points idempotently in `server/src/app.ts`, `server/src/models/reward-ledger.ts`, and `mobile/src/services/sudoku.ts`; never double-charge on resume or duplicate completion.
-- [ ] T048 [US3] Implement bear animation, point-funded treats/customization, background/music selection, and mute control in `mobile/app/index.tsx`, `mobile/app/settings.tsx`, and `mobile/src/services/api.ts`; keep mute independent of notifications.
-- [ ] T049 [US3] Run `server/tests/activity.test.ts`, `server/tests/progress.test.ts`, `server/tests/energy.test.ts`, `server/tests/rewards.test.ts`, and `mobile/src/services/sudoku.test.ts`, plus all API/mobile checks; validate energy arithmetic, Sudoku completion, reward idempotency, and two-user ownership independently.
+- [ ] T048 [US3] *(done 2026-10-25: streak heart with rainbow and heartbeat, treats, looks and background themes bought with reward points; **still open: music selection and the mute control**, postponed, see `future_considerations.md` section 6)* Implement bear animation, point-funded treats/customization, background/music selection, and mute control in `mobile/app/index.tsx`, `mobile/app/settings.tsx`, and `mobile/src/services/api.ts`; keep mute independent of notifications.
+- [X] T049 [US3] *(run 2026-10-25 with the current file names: activities, energy, progress, streak, sudoku, rewards tests; all pass)* Run `server/tests/activity.test.ts`, `server/tests/progress.test.ts`, `server/tests/energy.test.ts`, `server/tests/rewards.test.ts`, and `mobile/src/services/sudoku.test.ts`, plus all API/mobile checks; validate energy arithmetic, Sudoku completion, reward idempotency, and two-user ownership independently.
 
 ### Bear animation (added from the bear-movements specification update)
 
-- [ ] T058 [US3] Add `mobile/assets/bear/bear.svg` as the bear artwork and a generator `mobile/scripts/generate-bear.mjs` that converts it to `mobile/src/components/bear/BearArt.generated.tsx`, keeping named groups (eyes, ears, arms, legs, hearts) addressable (FR-056).
-- [ ] T059 [US3] Implement the animation engine and `Bear` component in `mobile/src/components/bear/` with tap reactions (arm wave, surprised eyebrows, arms over eyes), blinking, random ear waves, bored behaviors, feed jump-and-hearts, and reduced-motion handling (FR-024, FR-057–FR-061).
-- [ ] T060 [US3] Replace the text bear in `mobile/app/index.tsx` with `Bear`; trigger the feed reaction when a meal is saved and a reaction when Sudoku is selected (FR-059, FR-060).
-- [ ] T061 [P] [US3] Add engine tests in `mobile/src/components/bear/animation.test.ts` for pose blending, reaction replacement, and reduced-motion behavior.
+- [X] T058 [US3] Add `mobile/assets/bear/bear.svg` as the bear artwork and a generator `mobile/scripts/generate-bear.mjs` that converts it to `mobile/src/components/bear/BearArt.generated.tsx`, keeping named groups (eyes, ears, arms, legs, hearts) addressable (FR-056).
+- [X] T059 [US3] Implement the animation engine and `Bear` component in `mobile/src/components/bear/` with tap reactions (arm wave, surprised eyebrows, arms over eyes), blinking, random ear waves, bored behaviors, feed jump-and-hearts, and reduced-motion handling (FR-024, FR-057–FR-061).
+- [X] T060 [US3] Replace the text bear in `mobile/app/index.tsx` with `Bear`; trigger the feed reaction when a meal is saved and a reaction when Sudoku is selected (FR-059, FR-060).
+- [X] T061 [P] [US3] Add engine tests in `mobile/src/components/bear/animation.test.ts` for pose blending, reaction replacement, and reduced-motion behavior.
 - [ ] T062 [US3] Validate every bear behavior on a phone in Expo Go and in a desktop browser; record results in `specs/001-bear-care-experience/quickstart.md` (SC-021, SC-022).
 
 **Checkpoint**: Energy values match the examples and formula; board validation handles every Sudoku
@@ -168,7 +168,7 @@ streak credit.
 - [ ] T053 Run a 30-minute Expo Go and desktop normal-use/error-recovery session with at least 500 screen transitions; record crashes, memory after warm-up, network disruptions, device/runtime, and unsupported native capabilities in `specs/001-bear-care-experience/quickstart.md`.
 - [ ] T054 Verify timeout, interrupted request, unavailable server, stale cached data labeling, no offline write queue, and explicit retry behavior in `mobile/src/services/api.ts`, `mobile/app/meals.tsx`, and `specs/001-bear-care-experience/quickstart.md`.
 - [ ] T055 Verify same-field concurrent edit conflict and independent-field persistence in `server/src/app.ts`, `server/tests/concurrency.test.ts`, and `mobile/src/services/api.ts`; record expected conflict and refresh behavior.
-- [ ] T056 Update the root `README.md` with separate API/mobile setup, Expo Go instructions, configuration for emulator and physical device, supported desktop launch, and safe HTTPS/network guidance.
+- [X] T056 *(root README written 2026-10-25)* Update the root `README.md` with separate API/mobile setup, Expo Go instructions, configuration for emulator and physical device, supported desktop launch, and safe HTTPS/network guidance.
 - [ ] T057 Run the full `server/` test/typecheck/build suite and `mobile/` typecheck; complete the Expo Go validation scenarios in `specs/001-bear-care-experience/quickstart.md` and document any unmet target or specification adjustment.
 
 ---
@@ -218,6 +218,8 @@ before T074; T076 before T075; T078 after T077. T082 is independent but must be 
 - [X] T086 [US4] Add `mobile/src/services/restoreSession.ts` with tests in `mobile/src/services/restoreSession.test.ts` (no token -> signed out; valid -> signed in with the fresh token saved; 401 -> token discarded; unreachable/5xx -> token kept and a message) and make `mobile/src/services/sessionVault.ts` store the sign-in unconditionally (secure storage on phones, local storage on web) (FR-070).
 - [X] T087 [US4] Restore the session on launch in `mobile/app/index.tsx`: a short "Waking up the bear..." screen, a "Can't reach the server" screen with "Try again" and "Log out instead", and sign-in saving the token (FR-070, SC-029).
 - [ ] T088 [US4] Confirm staying signed in on a phone in Expo Go (close and reopen the app, airplane mode on launch, log out then relaunch) and record in `quickstart.md` (SC-029).
+
+- [X] T089 [US3] Optional profile picture (FR-029): `PUT/GET/DELETE /api/profile/picture` in `server/src/app.ts` with validation in `server/src/validation.ts` (PNG, JPEG or WebP data URL, magic bytes checked, at most 120 KB, own 200 KB body limit) and tests in `server/tests/profile-picture.test.ts`; photo picking, centred square crop and shrinking in `mobile/src/services/profilePicture.ts` (tests in `profilePicture.test.ts`); picture shown in the header and in settings with change and remove in `mobile/app/settings.tsx`, `mobile/app/index.tsx`, `mobile/src/components/Avatar.tsx`.
 
 **Checkpoint**: Expo Go opens without the missing-module error; breathing looks smooth; one animate switch; log out
 works; no timezone or forgot-password option; reminder blocks equal the meal target; the goal bar matches meals logged;
