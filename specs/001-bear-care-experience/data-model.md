@@ -141,3 +141,14 @@ removes it and cancels any scheduled reminders.
 
 Reset code hash and expiry fields exist on the account but the routes are disabled unless `PASSWORD_RESET_ENABLED`
 is true.
+
+### Field versions (built 2026-10-25)
+
+The profile, each meal entry and each activity entry keep a `fieldVersions` map: a whole number per field, 0 until the field is
+first changed, raised by 1 each time that field changes (also when it changes as a consequence, for example the reminder times
+when the meal target changes). A client that sends `expectedVersions` for the fields it edits succeeds only if none of them was
+changed since; otherwise nothing is applied and the answer is `409 CONFLICT` with the current value and version of each
+conflicting field (and the latest profile or record). Fields that were not changed elsewhere never conflict, so edits to different
+fields or records both persist. Two simultaneous requests for the same field cannot both win. A client that sends no versions
+behaves as before (last write wins). The app's settings screen (display name, meal target, step target, reminder times)
+sends versions; device-driven writes (timezone sync, reminder on/off) do not, because they restate the device's own state.

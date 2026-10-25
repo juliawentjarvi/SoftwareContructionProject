@@ -8,7 +8,7 @@ import type { Profile } from "./api";
 import { syncTimezone } from "./timezoneSync";
 
 const profile = (timezone: string): Profile => ({
-	id: "1", email: "a@example.test", displayName: "A", timezone, dailyMealGoal: 3, stepTarget: null, selectedTheme: "meadow", selectedAccessory: null, hasProfilePicture: false, notificationsEnabled: false, reminderTimes: ["08:00", "12:30", "18:30"],
+	id: "1", email: "a@example.test", displayName: "A", timezone, dailyMealGoal: 3, stepTarget: null, selectedTheme: "meadow", selectedAccessory: null, hasProfilePicture: false, fieldVersions: {}, notificationsEnabled: false, reminderTimes: ["08:00", "12:30", "18:30"],
 });
 
 describe("syncTimezone", () => {

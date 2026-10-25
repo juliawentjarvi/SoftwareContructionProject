@@ -9,7 +9,7 @@ import { restoreSession } from "./restoreSession";
 
 const session: AuthSession = {
 	accessToken: "fresh",
-	user: { id: "1", email: "a@example.test", displayName: "A", timezone: "UTC", dailyMealGoal: 3, stepTarget: null, selectedTheme: "meadow", selectedAccessory: null, hasProfilePicture: false, notificationsEnabled: false, reminderTimes: ["08:00", "12:30", "18:30"] },
+	user: { id: "1", email: "a@example.test", displayName: "A", timezone: "UTC", dailyMealGoal: 3, stepTarget: null, selectedTheme: "meadow", selectedAccessory: null, hasProfilePicture: false, fieldVersions: {}, notificationsEnabled: false, reminderTimes: ["08:00", "12:30", "18:30"] },
 };
 
 function deps(overrides: Record<string, unknown> = {}) {

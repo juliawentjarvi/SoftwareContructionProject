@@ -187,3 +187,12 @@ under the expected-load test and verify there are no cross-user reads or uninten
 - Profile responses carry only `hasProfilePicture` (never the image), so sign-in and refresh stay small. Only the owner can read
   their picture, and deleting the account removes it.
 - Oversized request bodies on any route now answer `413` in the standard error format (previously a `500`).
+
+## Conflict detection (2026-10-25)
+
+- `PATCH /api/profile`, `PATCH /api/meals/{id}` and `PATCH /api/activities/{id}` accept an optional `expectedVersions`
+  object, for example `{ "displayName": 2 }`, whole numbers from 0. Profile, meal and activity responses carry `fieldVersions`.
+- A stale field gives `409` with `{ "error": { "code": "CONFLICT", "message": ..., "details": { "fields": { "<field>": { "version", "value" } }, "user" | "record": <latest> } } }`
+  and nothing is changed. Retry after reading the latest version. A stale edit is reported as a conflict before any other
+  validation of its values.
+- Clearing a step count on an activity (`"stepCount": null`) raises that field's version like any other change.

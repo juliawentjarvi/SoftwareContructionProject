@@ -7,6 +7,8 @@ const activityEntrySchema = new Schema(
     occurredAt: { type: Date, required: true },
     // Absent means "no step information"; 0 is a real value.
     stepCount: { type: Number, min: 0, max: 1_000_000, validate: Number.isInteger },
+    // Version of each field, raised whenever it changes; used to detect stale edits (see concurrency.ts).
+    fieldVersions: { type: Map, of: Number, default: {} },
     notes: { type: String, trim: true, maxlength: 280, default: null },
   },
   { timestamps: true },

@@ -12,6 +12,7 @@ import { MealEntry } from './models/meal-entry.js';
 import { SudokuGame } from './models/sudoku-game.js';
 import { RewardUnlock } from './models/reward-unlock.js';
 import { CATALOG, DEFAULT_THEME, REWARD_PER_SUDOKU_GAME, findItem } from './rewards.js';
+import { staleFields, updateWithVersions } from './concurrency.js';
 import { reconcileReminderTimes, reminderCountFor } from './reminder-schedule.js';
 import { User } from './models/user.js';
 import { requireAuth } from './middleware/auth.js';
@@ -50,7 +51,7 @@ const hashResetToken = (token: string) => createHash('sha256').update(token).dig
 const DEV_WEB_ORIGIN = /^https?:\/\/[^/]+:(8081|19006)$/;
 
 class ApiError extends Error {
-  constructor(readonly status: number, readonly code: string, message: string) {
+  constructor(readonly status: number, readonly code: string, message: string, readonly details?: unknown) {
     super(message);
   }
 }
@@ -72,6 +73,7 @@ function publicUser(user: InstanceType<typeof User>) {
     dailyMealGoal: user.dailyMealGoal,
     stepTarget: user.stepTarget ?? null,
     hasProfilePicture: user.hasPicture === true,
+    fieldVersions: Object.fromEntries(user.fieldVersions ?? []),
     selectedTheme: user.selectedTheme ?? DEFAULT_THEME,
     selectedAccessory: user.selectedAccessory ?? null,
     notificationsEnabled: user.notificationsEnabled,
@@ -107,6 +109,13 @@ async function unlockedIds(userId: Types.ObjectId): Promise<string[]> {
   const ids = new Set<string>([DEFAULT_THEME]);
   for (const row of rows) if (findItem(row.itemId)?.kind !== 'treat') ids.add(row.itemId);
   return [...ids];
+}
+
+const CONFLICT_MESSAGE = 'This was changed somewhere else. The latest values are included; refresh and apply your change again if you still want it.';
+
+/** A stored document as plain JSON with its field versions as an object. */
+function plain(doc: { toObject: (options: { flattenMaps: boolean }) => unknown }) {
+  return doc.toObject({ flattenMaps: true });
 }
 
 function bearerToken(userId: string, secret: string, expiresIn: string): string {
@@ -249,9 +258,11 @@ export function createApp(options: AppOptions) {
     response.json({ user: publicUser(await withMatchingReminders(user)) });
   });
   app.patch('/api/profile', async (request, response) => {
-    const changes = validated(profilePatchSchema, request.body);
+    const { expectedVersions, ...changes } = validated(profilePatchSchema, request.body);
     const current = await User.findById(request.auth!.userId);
     if (!current) throw new ApiError(404, 'NOT_FOUND', 'Profile not found');
+    const stale = staleFields(current, changes, expectedVersions);
+    if (Object.keys(stale).length > 0) throw new ApiError(409, 'CONFLICT', CONFLICT_MESSAGE, { fields: stale, user: publicUser(current) });
 
     // One reminder per planned meal: the schedule always has min(meal target, 12) times.
     const goal = changes.dailyMealGoal ?? current.dailyMealGoal;
@@ -275,9 +286,12 @@ export function createApp(options: AppOptions) {
     choose(changes.selectedAccessory, 'appearance');
     if (changes.selectedTheme === null) changes.selectedTheme = DEFAULT_THEME;
 
-    const user = await User.findByIdAndUpdate(request.auth!.userId, changes, { new: true, runValidators: true });
-    if (!user) throw new ApiError(404, 'NOT_FOUND', 'Profile not found');
-    response.json({ user: publicUser(user) });
+    const outcome = await updateWithVersions<InstanceType<typeof User>>(User, { _id: new Types.ObjectId(request.auth!.userId) }, changes, expectedVersions);
+    if (!outcome.ok) {
+      if (outcome.notFound) throw new ApiError(404, 'NOT_FOUND', 'Profile not found');
+      throw new ApiError(409, 'CONFLICT', CONFLICT_MESSAGE, { fields: outcome.fields, user: publicUser(outcome.current) });
+    }
+    response.json({ user: publicUser(outcome.doc) });
   });
 
   app.use('/api/meals', authenticate);
@@ -306,14 +320,13 @@ export function createApp(options: AppOptions) {
   });
   app.patch('/api/meals/:mealId', async (request, response) => {
     const mealId = requireObjectId(request.params.mealId!);
-    const changes = validated(mealPatchSchema, request.body);
-    const meal = await MealEntry.findOneAndUpdate(
-      { _id: mealId, userId: request.auth!.userId },
-      changes,
-      { new: true, runValidators: true },
-    ).lean();
-    if (!meal) throw new ApiError(404, 'NOT_FOUND', 'Meal entry not found');
-    response.json({ meal });
+    const { expectedVersions, ...changes } = validated(mealPatchSchema, request.body);
+    const outcome = await updateWithVersions(MealEntry, { _id: mealId, userId: request.auth!.userId }, changes, expectedVersions);
+    if (!outcome.ok) {
+      if (outcome.notFound) throw new ApiError(404, 'NOT_FOUND', 'Meal entry not found');
+      throw new ApiError(409, 'CONFLICT', CONFLICT_MESSAGE, { fields: outcome.fields, record: plain(outcome.current as never) });
+    }
+    response.json({ meal: plain(outcome.doc as never) });
   });
   app.delete('/api/meals/:mealId', async (request, response) => {
     const mealId = requireObjectId(request.params.mealId!);
@@ -342,18 +355,13 @@ export function createApp(options: AppOptions) {
   });
   app.patch('/api/activities/:activityId', async (request, response) => {
     const activityId = requireObjectId(request.params.activityId!);
-    const changes = validated(activityPatchSchema, request.body);
-    const { stepCount, ...rest } = changes;
-    const update: Record<string, unknown> = { ...rest };
-    if (stepCount === null) update.$unset = { stepCount: '' };
-    else if (stepCount !== undefined) update.stepCount = stepCount;
-    const activity = await ActivityEntry.findOneAndUpdate(
-      { _id: activityId, userId: request.auth!.userId },
-      update,
-      { new: true, runValidators: true },
-    ).lean();
-    if (!activity) throw new ApiError(404, 'NOT_FOUND', 'Activity entry not found');
-    response.json({ activity });
+    const { expectedVersions, ...changes } = validated(activityPatchSchema, request.body);
+    const outcome = await updateWithVersions(ActivityEntry, { _id: activityId, userId: request.auth!.userId }, changes, expectedVersions);
+    if (!outcome.ok) {
+      if (outcome.notFound) throw new ApiError(404, 'NOT_FOUND', 'Activity entry not found');
+      throw new ApiError(409, 'CONFLICT', CONFLICT_MESSAGE, { fields: outcome.fields, record: plain(outcome.current as never) });
+    }
+    response.json({ activity: plain(outcome.doc as never) });
   });
   app.delete('/api/activities/:activityId', async (request, response) => {
     const activityId = requireObjectId(request.params.activityId!);
@@ -479,7 +487,7 @@ export function createApp(options: AppOptions) {
 
   const errorHandler: ErrorRequestHandler = (error: unknown, _request: Request, response: Response, _next) => {
     if (error instanceof ApiError) {
-      response.status(error.status).json({ error: { code: error.code, message: error.message } });
+      response.status(error.status).json({ error: { code: error.code, message: error.message, ...(error.details !== undefined ? { details: error.details } : {}) } });
       return;
     }
     if (error instanceof mongoose.Error.ValidationError || error instanceof mongoose.Error.CastError) {

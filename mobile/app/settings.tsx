@@ -8,6 +8,7 @@ import { checkReminderTimes, saveReminderTimes, setRemindersEnabled } from "../s
 import ApiConnectionSettings from "../src/components/ApiConnectionSettings";
 import Avatar from "../src/components/Avatar";
 import { pickProfilePicture } from "../src/services/profilePicture";
+import { conflictFrom, versionsFor } from "../src/services/conflicts";
 
 interface SettingsScreenProps {
 	session: AuthSession;
@@ -28,12 +29,27 @@ export default function SettingsScreen({ session, onProfileChanged, deviceRemind
 	const [error, setError] = useState<string | null>(null);
 	const [isSaving, setIsSaving] = useState(false);
 
-	const save = async (changes: Partial<Pick<Profile, "displayName" | "dailyMealGoal" | "stepTarget" | "notificationsEnabled" | "reminderTimes">>) => {
+	// Edits carry the versions they were based on, so a change made elsewhere in the meantime is reported, not overwritten.
+	const showLatest = (user: Profile) => {
+		setProfile(user);
+		onProfileChanged(user);
+		setGoalText(String(user.dailyMealGoal));
+		setStepText(user.stepTarget === null ? "" : String(user.stepTarget));
+		setTimes(user.reminderTimes);
+	};
+
+	const save = async (changes: Partial<Pick<Profile, "displayName" | "dailyMealGoal" | "stepTarget" | "selectedTheme" | "selectedAccessory" | "notificationsEnabled" | "reminderTimes">>) => {
 		setIsSaving(true);
 		setError(null);
-		const result = await api.updateProfile(session.accessToken, changes);
+		const result = await api.updateProfile(session.accessToken, changes, versionsFor(profile.fieldVersions, Object.keys(changes)));
 		if (!result.ok) {
-			setError(errorMessage(result.body, "Settings couldn't be saved."));
+			const conflict = conflictFrom(result.status, result.body);
+			if (conflict) {
+				if (conflict.user) showLatest(conflict.user);
+				setError(conflict.message);
+			} else {
+				setError(errorMessage(result.body, "Settings couldn't be saved."));
+			}
 			setIsSaving(false);
 			return null;
 		}

@@ -6,6 +6,8 @@ const mealEntrySchema = new Schema(
     name: { type: String, required: true, trim: true, minlength: 1, maxlength: 100 },
     mealType: { type: String, enum: ['breakfast', 'lunch', 'dinner', 'snack'], required: true },
     eatenAt: { type: Date, required: true },
+    // Version of each field, raised whenever it changes; used to detect stale edits (see concurrency.ts).
+    fieldVersions: { type: Map, of: Number, default: {} },
     notes: { type: String, trim: true, maxlength: 280, default: null },
   },
   { timestamps: true },

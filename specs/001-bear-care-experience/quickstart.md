@@ -185,6 +185,15 @@ Run on a phone in Expo Go and on a desktop browser. Record device, date and resu
   stored; it showed in the header after reloading (still signed in); removing it brought the initial back and the server
   returned no image. Not yet tried on a phone (the system photo picker and permission wording).
 
+### Concurrent edits record (T055, 2026-10-25)
+
+- Server 158 tests (same-field stale edit rejected and the newer value kept; different fields both persist; two simultaneous edits
+  of one field give exactly one winner; meal and activity entries; other accounts get 404; no versions still works), mobile 123 tests.
+- In headless Edge, two sessions of one account: session A renamed the account; session B (loaded before) tried to rename it and
+  was told "changed somewhere else", its field now showed A's name, it could still change another field (step target), and after
+  refreshing its retry was applied.
+- Not yet tried on a phone.
+
 ## API reachability and endpoint switching
 
 1. Start the API from `server/` using `npm run dev`; verify `GET /health`.

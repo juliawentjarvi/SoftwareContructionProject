@@ -125,6 +125,8 @@ export interface Profile {
   selectedAccessory: string | null;
   /** True when a profile picture is stored; fetch it with getProfilePicture. */
   hasProfilePicture: boolean;
+  /** Version of each field; sent back with an edit so a change made elsewhere in the meantime is detected. */
+  fieldVersions: Record<string, number>;
   notificationsEnabled: boolean;
   reminderTimes: string[];
 }
@@ -287,11 +289,15 @@ export function getProfile(accessToken: string) {
   return request<{ user: Profile }>("/profile", { headers: { Authorization: `Bearer ${accessToken}` } });
 }
 
-export function updateProfile(accessToken: string, changes: Partial<Pick<Profile, "displayName" | "timezone" | "dailyMealGoal" | "stepTarget" | "selectedTheme" | "selectedAccessory" | "notificationsEnabled" | "reminderTimes">>) {
+export function updateProfile(
+  accessToken: string,
+  changes: Partial<Pick<Profile, "displayName" | "timezone" | "dailyMealGoal" | "stepTarget" | "selectedTheme" | "selectedAccessory" | "notificationsEnabled" | "reminderTimes">>,
+  expectedVersions?: Record<string, number>,
+) {
   return request<{ user: Profile }>("/profile", {
     method: "PATCH",
     headers: { Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify(changes),
+    body: JSON.stringify(expectedVersions ? { ...changes, expectedVersions } : changes),
   });
 }
 

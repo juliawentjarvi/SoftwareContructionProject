@@ -37,6 +37,9 @@ export const loginSchema = z.object({
 
 // Reminder times are local wall-clock times on the user's device, so they are independent of the profile timezone.
 // One reminder per planned meal, up to 12 a day (see reminder-schedule.ts), kept in time order without duplicates.
+// Versions of the fields the client last saw; a field is only changed if nobody changed it since (see concurrency.ts).
+const expectedVersions = z.record(z.string().max(40), z.number().int().min(0).max(1_000_000)).optional();
+
 const reminderTimesField = z.array(z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/))
   .min(1, 'Choose at least one reminder time')
   .max(12, 'Choose at most twelve reminder times')
@@ -52,7 +55,8 @@ export const profilePatchSchema = z.object({
   selectedAccessory: z.string().min(1).max(40).nullable().optional(),
   notificationsEnabled: z.boolean().optional(),
   reminderTimes: reminderTimesField.optional(),
-}).refine((value) => Object.keys(value).length > 0, 'Provide at least one profile field');
+  expectedVersions,
+}).refine((value) => Object.keys(value).filter((key) => key !== 'expectedVersions').length > 0, 'Provide at least one profile field');
 
 export const mealCreateSchema = z.object({
   name: z.string().trim().min(1).max(100),
@@ -66,7 +70,8 @@ export const mealPatchSchema = z.object({
   mealType: z.enum(mealTypes).optional(),
   eatenAt: z.iso.datetime({ offset: true }).transform((value) => new Date(value)).optional(),
   notes: z.string().trim().max(280).nullable().optional(),
-}).refine((value) => Object.keys(value).length > 0, 'Provide at least one meal field');
+  expectedVersions,
+}).refine((value) => Object.keys(value).filter((key) => key !== 'expectedVersions').length > 0, 'Provide at least one meal field');
 
 export const mealsQuerySchema = z.object({
   from: z.iso.datetime({ offset: true }).optional(),
@@ -92,7 +97,8 @@ export const activityPatchSchema = z.object({
   occurredAt: z.iso.datetime({ offset: true }).transform((value) => new Date(value)).optional(),
   stepCount: stepCount.nullable().optional(),
   notes: z.string().trim().max(280).nullable().optional(),
-}).refine((value) => Object.keys(value).length > 0, 'Provide at least one activity field');
+  expectedVersions,
+}).refine((value) => Object.keys(value).filter((key) => key !== 'expectedVersions').length > 0, 'Provide at least one activity field');
 
 export const sudokuStartSchema = z.object({ gameId: z.string().uuid() });
 

@@ -62,3 +62,9 @@ Authoritative requirements stay in `spec.md`; task status stays in `tasks.md`. L
 ## Decisions
 
 - Streak rule (T045), decided 2026-10-25: a day qualifies on meals, and on steps too only when a step target is set.
+
+## Update 2026-10-25 (late): concurrent edit protection built (T055, FR-051)
+
+Remaining from the plan: stale-data labels and offline messages (T054), measurements (T050-T053, T057), screen-level tests (T030),
+and the phone checks (T035 with reminders, T062, T071, T084, T088). Postponed on purpose: reminders, music and mute, password email,
+offline logging, health-app steps (see `future_considerations.md`).

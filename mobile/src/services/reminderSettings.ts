@@ -1,4 +1,5 @@
 import api, { errorMessage, Profile } from "./api";
+import { conflictFrom, versionsFor } from "./conflicts";
 import { disableMealReminders, enableMealReminders, ReminderResult } from "./reminders";
 
 /** On failure `user` is the latest profile the server confirmed, when the failure changed it. */
@@ -44,8 +45,12 @@ export async function setRemindersEnabled(token: string, user: Profile, enabled:
 
 /** Saves new reminder times and, when reminders are on, reschedules the device to match. */
 export async function saveReminderTimes(token: string, user: Profile, times: string[], deps: ReminderDeps = defaults): Promise<ReminderOutcome> {
-	const saved = await deps.updateProfile(token, { reminderTimes: times });
-	if (!saved.ok) return { ok: false, message: errorMessage(saved.body, "Your reminder times couldn't be saved.") };
+	const saved = await deps.updateProfile(token, { reminderTimes: times }, versionsFor(user.fieldVersions, ["reminderTimes"]));
+	if (!saved.ok) {
+		const conflict = conflictFrom(saved.status, saved.body);
+		if (conflict) return { ok: false, message: conflict.message, ...(conflict.user ? { user: conflict.user } : {}) };
+		return { ok: false, message: errorMessage(saved.body, "Your reminder times couldn't be saved.") };
+	}
 	if (!user.notificationsEnabled) return { ok: true, user: saved.body.user };
 
 	const scheduled = await deps.enable(saved.body.user.reminderTimes);

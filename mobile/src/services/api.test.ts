@@ -215,3 +215,14 @@ describe("activity requests", () => {
 		expect(String(calls[2]![0])).toMatch(/\/activities\/abc$/);
 	});
 });
+
+describe("edits that detect changes made elsewhere", () => {
+	it("sends the expected versions with a profile change, and nothing extra without them", async () => {
+		vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ user: {} }), { status: 200 }));
+		await api.updateProfile("t", { displayName: "A" }, { displayName: 2 });
+		await api.updateProfile("t", { displayName: "B" });
+		const bodies = vi.mocked(fetch).mock.calls.map(([, init]) => JSON.parse(init!.body as string));
+		expect(bodies[0]).toEqual({ displayName: "A", expectedVersions: { displayName: 2 } });
+		expect(bodies[1]).toEqual({ displayName: "B" });
+	});
+});

@@ -8,7 +8,7 @@ import type { Profile } from "./api";
 import { checkReminderTimes, ReminderDeps, saveReminderTimes, setRemindersEnabled } from "./reminderSettings";
 
 const profile = (overrides: Partial<Profile> = {}): Profile => ({
-	id: "1", email: "a@example.test", displayName: "A", timezone: "UTC", dailyMealGoal: 3, stepTarget: null, selectedTheme: "meadow", selectedAccessory: null, hasProfilePicture: false,
+	id: "1", email: "a@example.test", displayName: "A", timezone: "UTC", dailyMealGoal: 3, stepTarget: null, selectedTheme: "meadow", selectedAccessory: null, hasProfilePicture: false, fieldVersions: {},
 	notificationsEnabled: false, reminderTimes: ["09:00", "13:00"], ...overrides,
 });
 const saved = (user: Profile) => ({ ok: true as const, status: 200, body: { user } });

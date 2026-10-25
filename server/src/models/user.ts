@@ -12,6 +12,8 @@ const userSchema = new Schema(
     // Small square image as a data URL (see profilePictureSchema); not part of normal profile responses.
     profilePicture: { type: String, default: null, select: false },
     hasPicture: { type: Boolean, default: false },
+    // Version of each field, raised whenever it changes; used to detect stale edits (see concurrency.ts).
+    fieldVersions: { type: Map, of: Number, default: {} },
     selectedTheme: { type: String, default: 'meadow' },
     selectedAccessory: { type: String, default: null },
     // Bumped inside every spend so two simultaneous spends conflict and cannot overspend the balance.
