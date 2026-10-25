@@ -6,12 +6,14 @@ import MealsScreen from "./meals";
 import SettingsScreen from "./settings";
 import { Bear } from "../src/components/bear/Bear";
 import api, { AuthSession, errorMessage, Profile, ProgressSummary } from "../src/services/api";
-import { clearMealReminders, remindersAvailable, requestReminderPermission, scheduleMealReminders } from "../src/services/reminders";
+import { configureNotifications, enableMealReminders, reminderSupport } from "../src/services/reminders";
+import { subscribeToNotificationResponses } from "../src/services/notificationListener";
+import { clearAccessToken, saveAccessToken } from "../src/services/sessionVault";
+import { setRemindersEnabled } from "../src/services/reminderSettings";
 
 type AppView = "home" | "meals" | "settings";
 
 export default function App() {
-	const canScheduleReminders = remindersAvailable();
 	const [session, setSession] = useState<AuthSession | null>(null);
 	const [authMode, setAuthMode] = useState<"login" | "register">("login");
 	const [view, setView] = useState<AppView>("home");
@@ -20,12 +22,18 @@ export default function App() {
 	const [fedAt, setFedAt] = useState<number | null>(null);
 	const [emoteSignal, setEmoteSignal] = useState(0);
 	const [savedOffer, setSavedOffer] = useState(false);
+	// Whether this device really has the reminders scheduled; the saved preference alone does not mean it does.
+	const [deviceReminders, setDeviceReminders] = useState(false);
 
 	const authenticate = async (nextSession: AuthSession) => {
 		setSession(nextSession);
+		void saveAccessToken(nextSession.accessToken); // lets a reminder's "Log a meal" action save while the app is closed
 		setView("home");
-		if (nextSession.user.notificationsEnabled && await requestReminderPermission()) {
-			await scheduleMealReminders(nextSession.user.reminderTimes);
+		setDeviceReminders(false);
+		if (nextSession.user.notificationsEnabled && reminderSupport().supported) {
+			const scheduled = await enableMealReminders(nextSession.user.reminderTimes);
+			setDeviceReminders(scheduled.ok);
+			if (!scheduled.ok) setError(scheduled.message);
 		}
 	};
 
@@ -38,6 +46,15 @@ export default function App() {
 		return () => { active = false; };
 	}, [session, view]);
 
+	// Set up notification display and actions once on phones, and react to taps and answers on reminders.
+	useEffect(() => {
+		void configureNotifications().catch(() => undefined);
+		return subscribeToNotificationResponses((outcome) => {
+			if (outcome.status === "open-meals" || outcome.status === "needs-sign-in") setView("meals");
+			if (outcome.status === "logged") { setFedAt(Date.now()); setView("home"); }
+		});
+	}, []);
+
 	// The "log another meal" offer after a save disappears on its own after seven seconds.
 	useEffect(() => {
 		if (!savedOffer) return;
@@ -47,19 +64,16 @@ export default function App() {
 
 	const toggleReminders = async (enabled: boolean) => {
 		if (!session) return;
-		if (enabled && !await requestReminderPermission()) {
-			setError("Allow notifications in device settings to enable reminders.");
+		const outcome = await setRemindersEnabled(session.accessToken, session.user, enabled);
+		if (outcome.ok) {
+			setSession({ ...session, user: outcome.user });
+			setDeviceReminders(enabled);
+			setError(null);
 			return;
 		}
-		const result = await api.updateProfile(session.accessToken, { notificationsEnabled: enabled });
-		if (!result.ok) {
-			setError(errorMessage(result.body, "Reminder settings could not be saved."));
-			return;
-		}
-		setSession({ ...session, user: result.body.user });
-		setError(null);
-		if (enabled) await scheduleMealReminders(result.body.user.reminderTimes);
-		else await clearMealReminders();
+		if (outcome.user) setSession({ ...session, user: outcome.user });
+		if (enabled) setDeviceReminders(false);
+		setError(outcome.message);
 	};
 
 	const updateProfile = (user: Profile) => {
@@ -86,14 +100,14 @@ export default function App() {
 				<View style={styles.headerActions}>
 					<View style={styles.reminderToggle}>
 						<Text style={styles.reminderLabel}>Remind</Text>
-						<Switch value={session.user.notificationsEnabled} onValueChange={(enabled) => void toggleReminders(enabled)} accessibilityLabel="Toggle meal reminders" disabled={!canScheduleReminders} />
+						<Switch value={session.user.notificationsEnabled && deviceReminders} onValueChange={(enabled) => void toggleReminders(enabled)} accessibilityLabel="Toggle meal reminders" />
 					</View>
 					<Pressable accessibilityRole="button" accessibilityLabel="Profile and settings" onPress={() => setView("settings")} style={styles.profileButton}><Text style={styles.profileInitial}>{session.user.displayName.slice(0, 1).toUpperCase()}</Text></Pressable>
 				</View>
 			</View>
 
 			{view === "meals" ? <View style={styles.page}><Pressable onPress={() => setView("home")} style={styles.back}><Text style={styles.backText}>‹  Home</Text></Pressable><MealsScreen token={session.accessToken} timezone={session.user.timezone} onMealSaved={() => { setFedAt(Date.now()); setSavedOffer(true); setView("home"); }} /></View> : null}
-			{view === "settings" ? <View style={styles.page}><Pressable onPress={() => setView("home")} style={styles.back}><Text style={styles.backText}>‹  Home</Text></Pressable><SettingsScreen session={session} onProfileChanged={updateProfile} onAccountDeleted={() => { setSession(null); setView("home"); }} /></View> : null}
+			{view === "settings" ? <View style={styles.page}><Pressable onPress={() => setView("home")} style={styles.back}><Text style={styles.backText}>‹  Home</Text></Pressable><SettingsScreen session={session} onProfileChanged={updateProfile} deviceReminders={deviceReminders} onDeviceReminders={setDeviceReminders} onAccountDeleted={() => { void clearAccessToken(); setSession(null); setView("home"); }} /></View> : null}
 			{view === "home" ? <ScrollView style={styles.home} contentContainerStyle={styles.homeContent}>
 				{savedOffer ? <View accessibilityRole="alert" style={styles.savedOffer}>
 					<Text style={styles.savedText}>Meal saved.</Text>

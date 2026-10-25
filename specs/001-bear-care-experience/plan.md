@@ -23,8 +23,8 @@ checks.
 
 **Language/Version**: API TypeScript 5.9 / Node.js; mobile TypeScript 6 / React Native and Expo
 
-**Primary Dependencies**: Expo 57, React Native 0.86, Express 5, Mongoose 8, MongoDB,
-Zod 4, Vitest 3, Supertest 7
+**Primary Dependencies**: Expo 58, React Native 0.88, react-native-svg, Express 5, Mongoose 8, MongoDB,
+Zod 4, Vitest 5, Supertest 7 (Brevo/SMTP mailer and `expo-notifications` are present but switched off, see below)
 
 **Storage**: MongoDB for account-owned data; device storage for the selected API endpoint and
 device-local preferences/reminder schedule
@@ -49,7 +49,10 @@ the user's last working endpoint when an endpoint health check fails. Tests must
 shared account or production data. Keep all user data scoped to its authenticated owner. Detect
 stale concurrent edits instead of silently overwriting them. Offline access is read-only for
 previously loaded, visibly stale data; writes are not queued. Expo Go does not support every
-native notification capability; distinguish runtime limitations from application defects.
+native notification capability; distinguish runtime limitations from application defects. **Device
+reminders and password-reset email are postponed** (`future_considerations.md`, `notifications-setup.md`):
+the app must not load `expo-notifications` (which fails in Expo Go with a missing
+`ExpoTopicSubscriptionModule` native module) and must not pretend those features work.
 
 **Scale/Scope**: Individual accounts with private meal and activity histories. Initial performance
 verification assumes 25 concurrent users making up to 12 ordinary requests per minute each over
@@ -60,7 +63,7 @@ five minutes; this is a validation baseline, not a production capacity guarantee
 | Principle | Gate | Application to this plan |
 |---|---|---|
 | Simplicity | Pass | Repair the current package and test boundaries before adding architecture or product scope. |
-| Maintainability | Pass | Use the documented `server/` API and `mobile/` client as the active integration path. Leave `backend/` untouched until its status is verified; avoid building duplicate behavior. |
+| Maintainability | Pass | Use the documented `server/` API and `mobile/` client as the active integration path. `backend/` was verified to be an unused stub (248 lines, most files empty, no consumers) and is removed in Increment 2 to avoid duplicate behavior. |
 | Consistency | Pass | Preserve established route, validation, naming, and response conventions unless the spec explicitly requires a change. |
 | Security | Pass with release gate | Test private-resource ownership with distinct accounts, protect credentials, avoid secrets in tests/logs, and require HTTPS for non-local traffic. |
 | Testability | Pass with baseline gate | Fix API test/build setup first; make tests deterministic and repeatable across runs, identities, and network outcomes. |
@@ -141,6 +144,29 @@ results are recorded with repeatable steps. Performance reports state target-ver
 startup, interaction, transition, API percentile, failure-rate, and resource results plus device,
 network, and workload conditions.
 
+## Increment 2: Everyday polish and honest settings (User Story 4)
+
+Source: hands-on testing on 2026-10-25. Requirements FR-062 to FR-069 and SC-023 to SC-028, plus amended FR-005,
+FR-006, FR-015, FR-061. Scope is deliberately small and contained: no new product features, no native-build work.
+Design decisions (reasoning in `research.md` sections 12-20):
+
+| # | Change | Approach |
+|---|---|---|
+| 1 | Notifications switched off cleanly (FR-065); fixes the `ExpoTopicSubscriptionModule` error | One constant (`REMINDER_DELIVERY_ENABLED = false`) in the mobile reminder service. While false: `expo-notifications`, notification setup, the response listener and the secure-token storage are never imported or called; switches stay off and show a friendly "still being figured out" note. Code and tests for scheduling stay in place for later. |
+| 2 | Choppy breathing on web (FR-062, SC-023) | Per-part subscriptions instead of re-rendering every part from one shared pose; animation frames follow the display refresh rate; breathing updates only the body part; identical poses skip re-rendering. Measure frame times in a browser before and after. |
+| 3 | Animate on/off (FR-061) | One device-local boolean, default on, that replaces "follow device" logic; off = no idle animation, taps and feeding still react. |
+| 4 | Log out (FR-063) | A prominent "Log out" button at the top of settings: clears in-memory session, stored token and any scheduled reminders, returns to sign-in. No server call needed. |
+| 5 | Automatic timezone (FR-006) | Device timezone sent at registration; on every sign-in/app open the client updates the account timezone if it differs; timezone control removed from settings. Server keeps the field because day boundaries (goal bar, streak) are computed there. |
+| 6 | Reminder blocks follow meal target (FR-015, FR-066) | Server keeps the invariant `reminderTimes.length = min(dailyMealGoal, 12)` and generates default times from one rhythm function; client only displays and edits. See `data-model.md`. |
+| 7 | Daily goal bar (FR-067, SC-026) | Not reproducible with a fresh account on web (bar and count agree). Leading hypothesis: accounts created before automatic timezone have timezone UTC, so meals logged late/early local time count for the other day. First task reproduces it with a failing test; the automatic timezone and a progress check by the user's timezone then fix it. Fallback: investigate the streak bar and native rendering. |
+| 8 | Password recovery postponed (FR-064, amended FR-005) | Remove the "Forgot password" UI; registration screen shows the safekeeping notice with a light quip. Server reset routes are kept but disabled by default behind `PASSWORD_RESET_ENABLED` so no unusable endpoint is exposed. |
+| 9 | App icon (FR-068) | Script renders the bear's head (head, ears, face; no body) from `bear.svg` to PNGs (1024 icon, Android adaptive foreground, favicon) and sets them in `app.json`. |
+| 10 | Remove `backend/` (FR-069) | Confirm nothing references it (done: no code, config or docs path depends on it), delete the folder, remove mentions from docs, run all checks. Its history stays in git. |
+
+**Increment 2 exit gate**: all server and mobile tests, typechecks and the server build pass; Expo Go (Android and
+iPhone) opens the app without the missing-module error; the manual checks in `quickstart.md` ("Increment 2 validation")
+pass on a phone and a desktop browser.
+
 ## Project Structure
 
 ### Documentation (this feature)
@@ -174,14 +200,15 @@ server/
 │   └── models/
 └── tests/                # API/domain tests
 
-backend/                  # Alternate/legacy tree; ownership and consumers unconfirmed
 ```
+
+`backend/` (unused stub) is removed by Increment 2.
 
 **Structure Decision**: Use the existing `mobile/` client and `server/` API. The API README names
 `server/` as the API for the Expo client, and its route contract matches the mobile API service.
-Treat `backend/` as out of scope during baseline stabilization unless investigation proves it is
-the deployed or required service. This avoids deleting possibly used code while preventing new
-duplicate implementation.
+`backend/` was out of scope during stabilization; it has since been verified as an unused stub and is
+removed (Increment 2, FR-069). This avoids deleting possibly used code early while preventing a duplicate
+implementation from lingering.
 
 ## Complexity Tracking
 

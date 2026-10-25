@@ -34,7 +34,7 @@ envelopes stable unless the specification explicitly requires a coordinated chan
 | GET | `/api/auth/me` | Yes | Read current profile |
 | DELETE | `/api/auth/me` | Yes | Delete current account and its records |
 | GET | `/api/profile` | Yes | Read current profile and goals |
-| PATCH | `/api/profile` | Yes | Update profile, timezone, meal goal, and reminders |
+| PATCH | `/api/profile` | Yes | Update display name, timezone (sent by the client from the device), meal goal, reminders |
 | GET | `/api/meals` | Yes | List current user's meals |
 | POST | `/api/meals` | Yes | Create a meal for current user |
 | PATCH | `/api/meals/{mealId}` | Yes | Update an owned meal |
@@ -48,7 +48,11 @@ without a fixed 1–8 cap.
 
 ## Required feature additions
 
-### Password recovery
+### Password recovery (disabled by default in this release)
+
+Routes exist only when the server is started with `PASSWORD_RESET_ENABLED=true`; otherwise they answer 404 and the app
+does not offer the flow (FR-064). The text below describes the behavior when enabled.
+
 
 | Method | Path | Auth | Purpose |
 |---|---|---:|---|
@@ -122,3 +126,13 @@ For concurrency tests, submit edits from two sessions based on the same field va
 first accepted update persists and a stale update to that same field receives a recoverable
 conflict. Concurrent edits to different fields or records both persist independently. Repeat
 under the expected-load test and verify there are no cross-user reads or unintended overwrites.
+
+## Increment 2 changes (2026-10-25)
+
+- `PATCH /api/profile` with `dailyMealGoal` returns `reminderTimes` reconciled to the new target (length
+  `min(goal, 12)`, rules in `data-model.md`); a request that sets both fields must send a list of that length or is
+  rejected with `400 INVALID_REQUEST`.
+- `PATCH /api/profile` with `reminderTimes` alone must contain exactly `min(current goal, 12)` distinct times.
+- New accounts: `dailyMealGoal` 3 and reminders 08:00, 12:30, 18:30 (previously 09:00, 13:00, 19:00).
+- Sign-out has no endpoint (client-side only); the token expires on its own.
+- Timezone updates arrive through the same `PATCH /api/profile` as `{ "timezone": "<IANA name>" }`.

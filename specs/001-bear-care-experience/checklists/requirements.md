@@ -37,3 +37,4 @@
 - Performance targets, expected workload/network conditions, offline behavior, stale-data signaling, field-level conflict resolution, and stability test conditions are defined in the specification.
 - Assumptions document reasonable defaults for notification limits, step tracking, streak qualification, energy-point handling, and optional game rewards.
 - No clarification markers remain; the feature is ready to proceed to `/speckit-plan`.
+- 2026-10-25 update (User Story 4, FR-062 to FR-069, SC-023 to SC-028): re-validated; no clarification markers; deferred items (password recovery, device reminders) are explicit requirements, not silent omissions.

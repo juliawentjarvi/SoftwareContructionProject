@@ -11,10 +11,10 @@ representation. Every account-owned record is private to its owner.
 | Email | Required, valid, normalized for case and surrounding whitespace; unique across accounts. |
 | Password credential | Protected credential; raw passwords are never stored or returned. |
 | Display name | Required, trimmed, and bounded in length. |
-| Timezone | Valid IANA timezone selected at registration or settings. |
+| Timezone | Valid IANA timezone taken from the device automatically at registration and refreshed whenever the app is used; there is no timezone setting. |
 | Meal target | Positive whole number; no fixed 1–8 ceiling. |
 | Step target | Positive whole number; separate from observed step progress. |
-| Reminder preference | Enabled state, selected local times, and frequency. |
+| Reminder preference | Enabled state and local times; the number of times always equals `min(meal target, 12)`. Times default from a meal-rhythm table. |
 | Audio preference | Whether in-app music and sound effects are muted. |
 | Profile picture | Optional user-selected image reference. |
 | Reward balance | Non-negative integer derived from reward events. |
@@ -110,3 +110,34 @@ award points twice.
 - Concurrent changes to distinct fields or records do not overwrite each other.
 - Offline writes are not queued. Previously fetched data may be viewed only when identified as
   potentially stale and annotated with its last refresh time.
+
+## Increment 2 additions (2026-10-25)
+
+### Reminder schedule invariant
+
+- `reminderTimes` holds exactly `min(dailyMealGoal, 12)` distinct `HH:mm` values in ascending order.
+- Default for a new account (target 3): 08:00, 12:30, 18:30.
+- Default rhythm: 1 -> 12:00; 2 -> 08:00, 18:00; 3 -> 08:00, 12:30, 18:30; 4 -> 08:00, 12:30, 15:30, 18:30;
+  5 -> 08:00, 10:30, 12:30, 15:30, 18:30; 6 or more -> evenly spread from 07:30 to 21:00 in 5-minute steps.
+- Changing the target: if the times still equal the default for the old target, regenerate the default for the new
+  target; otherwise keep existing times, add the nearest unused rhythm times when growing, drop the latest times when
+  shrinking.
+- `notificationsEnabled` stays `false` while device reminders are postponed; it is a preference, never proof of
+  delivery.
+
+### Device-local preferences (not stored on the account)
+
+| Preference | Meaning |
+|---|---|
+| Animate the bear | Boolean, default on. On = idle animations run regardless of the device's reduce-motion setting; off = no idle animations. Taps and feeding always react. |
+| Saved API address | Optional override of the automatic server address. |
+
+### Sign-in material on the device
+
+The access token may be kept in secure storage only when device reminders are enabled for use (postponed). Log out
+removes it and cancels any scheduled reminders.
+
+### Password reset (dormant)
+
+Reset code hash and expiry fields exist on the account but the routes are disabled unless `PASSWORD_RESET_ENABLED`
+is true.

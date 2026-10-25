@@ -34,12 +34,20 @@ export const loginSchema = z.object({
   password: z.string().min(1).refine((value) => Buffer.byteLength(value, 'utf8') <= 72, 'Password must be at most 72 bytes'),
 });
 
+// Reminder times are local wall-clock times on the user's device, so they are independent of the profile timezone.
+// How often reminders appear is the number of times (1 to 8 a day), kept in time order without duplicates.
+const reminderTimesField = z.array(z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/))
+  .min(1, 'Choose at least one reminder time')
+  .max(8, 'Choose at most eight reminder times')
+  .refine((times) => new Set(times).size === times.length, 'Reminder times must be different')
+  .transform((times) => [...times].sort());
+
 export const profilePatchSchema = z.object({
   displayName: z.string().trim().min(1).max(60).optional(),
   timezone: timezoneField.optional(),
   dailyMealGoal: z.number().int().min(1).optional(),
   notificationsEnabled: z.boolean().optional(),
-  reminderTimes: z.array(z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)).max(8).optional(),
+  reminderTimes: reminderTimesField.optional(),
 }).refine((value) => Object.keys(value).length > 0, 'Provide at least one profile field');
 
 export const mealCreateSchema = z.object({

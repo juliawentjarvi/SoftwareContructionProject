@@ -10,7 +10,12 @@ const userSchema = new Schema(
     notificationsEnabled: { type: Boolean, required: true, default: false },
     passwordResetHash: { type: String, select: false },
     passwordResetExpires: { type: Date, select: false },
-    reminderTimes: { type: [String], required: true, default: ['09:00', '13:00', '19:00'] },
+    reminderTimes: {
+      type: [String],
+      required: true,
+      default: ['09:00', '13:00', '19:00'],
+      validate: (times: string[]) => times.length >= 1 && times.length <= 8 && times.every((time) => /^([01]\d|2[0-3]):[0-5]\d$/.test(time)),
+    },
   },
   { timestamps: true },
 );

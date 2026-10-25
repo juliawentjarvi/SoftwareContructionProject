@@ -87,6 +87,51 @@ A user checks the home screen to see a bear, food bowl, Sudoku paper, meal progr
 22. **Given** the user taps the Sudoku entry, **When** the entry is activated, **Then** the bear performs one of the tap reactions from scenario 7.
 23. **Given** the device is set to reduce motion, **When** the home screen is shown, **Then** idle and bored animations do not run and any reaction is brief and non-looping.
 
+### User Story 4 - Everyday polish and honest settings (Priority: P1)
+
+After hands-on testing, a user expects the app to feel smooth, to be straightforward about what works today, and to
+keep settings simple: a clear way to log out, automatic timezone, a bear animation switch, reminders that follow their
+meal target, a daily goal bar that fills correctly, and a branded app icon. Features that are not ready (password
+recovery by email, device reminders) say so plainly instead of pretending.
+
+**Why this priority**: These are the issues found while using the app for real; fixing them makes the existing
+experience trustworthy before any new features are added.
+
+**Independent Test**: Create an account (read the password warning), log three meals against a three-meal target and
+watch the goal bar fill, open settings and confirm there is no timezone or forgot-password option, toggle the bear
+animation off and on, and log out from settings and back in.
+
+**Acceptance Scenarios**:
+
+1. **Given** the app is open in a desktop browser, **When** the bear idles for one minute, **Then** its breathing motion
+   looks continuous, without visible stutter or jumps.
+2. **Given** the bear animation setting, **When** the user turns it on, **Then** the bear's idle animations (breathing,
+   blinking, ear waves, bored moves) run even if the device asks for reduced motion; **When** they turn it off, **Then**
+   those idle animations stop and only reactions to taps and feeding remain.
+3. **Given** a signed-in user in settings, **When** they look for a way out, **Then** a clearly labelled "Log out" button
+   is visible without scrolling past other sections, and pressing it returns them to the sign-in screen with no account
+   data left visible, their saved sign-in removed from the device and any scheduled device reminders cancelled; their
+   account and records on the server are unchanged.
+4. **Given** a device whose clock is set to a particular timezone, **When** the user registers, signs in or views meal
+   times, **Then** the app uses that timezone automatically, and settings offer no timezone control.
+5. **Given** the user travels and the device timezone changes, **When** they next open the app, **Then** meal times and
+   day boundaries follow the new device timezone and previously saved meals keep their exact moment.
+6. **Given** a meal target of N, **When** the user opens reminder settings, **Then** there are exactly N editable
+   reminder blocks (up to the stated maximum), pre-filled with 24-hour times that follow a typical meal rhythm
+   (breakfast in the morning, lunch around midday, dinner in the early evening, further meals spaced between); changing the
+   target adds or removes blocks and keeps times the user has edited.
+7. **Given** a daily meal target of N, **When** the user logs, deletes or re-targets meals, **Then** the daily goal bar on
+   the home screen shows the number of meals logged today out of N and fills in proportion, updating immediately and
+   after the app is reopened.
+8. **Given** the user is creating an account, **When** they see the registration screen, **Then** it tells them to
+   remember the password or write it down somewhere safe, with a lighthearted line that account recovery is still being
+   figured out; **Given** the sign-in screen, **Then** it offers no "forgot password" option.
+9. **Given** reminders are not yet working on the device, **When** the user looks at the reminder switch on the home screen
+   or in settings, **Then** the switch does not turn on or claim reminders are active, and a clear, friendly note says
+   reminders are still being figured out; the reminder time blocks remain editable and are saved.
+10. **Given** the app is installed or added to a home screen, **When** the user sees its icon, **Then** it is a bear's head
+    drawn from the bear artwork, on both phone platforms and as the browser tab icon.
+
 ### Edge Cases
 
 - A registration attempt uses an email that already belongs to an account, including different capitalization or surrounding whitespace.
@@ -109,6 +154,11 @@ A user checks the home screen to see a bear, food bowl, Sudoku paper, meal progr
 - The app is used for an extended session with repeated navigation and repeated connection failures.
 - The user turns reminders off and later on again, or has reminders disabled while changing reminder times.
 - The user deletes their account; their private profile and log are no longer accessible through that account.
+- The device timezone changes mid-day (travel or manual change): the goal bar and streak use the new local day from then on, and stored meal moments do not change.
+- The meal target is raised or lowered: reminder blocks are added or removed and edited times are kept; a target above the reminder maximum shows the maximum number of blocks with an explanation.
+- A user logs out while reminders are scheduled or while a request is in flight: scheduled device reminders are cancelled and no later response signs them back in.
+- The user turns the bear animation off, then taps or feeds the bear: reactions still play.
+- The user forgets their password: there is no recovery in this release; the registration screen warned them.
 
 ## Requirements *(mandatory)*
 
@@ -118,8 +168,8 @@ A user checks the home screen to see a bear, food bowl, Sudoku paper, meal progr
 - **FR-002**: The app MUST treat email addresses without regard to letter case or surrounding whitespace when checking for duplicate accounts.
 - **FR-003**: The app MUST prevent multiple accounts from being created with the same email address.
 - **FR-004**: The app MUST store account profile information, including the email, a securely protected password credential, the user's calibration and notification preferences.
-- **FR-005**: The app MUST provide a password-reset flow that sends a time-limited, single-use reset option to the account email and does not disclose account existence in the request response.
-- **FR-006**: The app MUST allow a user to set a timezone during registration and change it later in settings.
+- **FR-005**: *(Deferred in this release; superseded by FR-064.)* A password-reset flow that sends a time-limited, single-use reset option to the account email and does not disclose account existence in the request response will be provided once a verified sending domain is available (see `future_considerations.md`).
+- **FR-006**: The app MUST determine the user's timezone from the device automatically (at registration and whenever the app is used) and MUST NOT offer a timezone setting; the account's stored timezone MUST follow the device so day boundaries and displayed meal times agree with it.
 - **FR-007**: The app MUST allow users to choose a positive whole-number daily meal target without limiting input to a fixed set of preset values.
 - **FR-008**: The app MUST let users create, review, and delete their own food log entries, each containing a meal name, meal time, and optional notes.
 - **FR-009**: The app MUST allow users to enter or edit a meal's date and time, including past meal times, using clearly labeled hour and minute selection.
@@ -128,7 +178,7 @@ A user checks the home screen to see a bear, food bowl, Sudoku paper, meal progr
 - **FR-012**: The app MUST let users record physical activity and step progress in a log that is accessible to that user.
 - **FR-013**: The app MUST let users set and change their step target, and MUST distinguish missing step information from a completed target.
 - **FR-014**: The app MUST ask for device notification permission before activating reminders, and MUST clearly indicate when permission is unavailable or denied.
-- **FR-015**: The app MUST let users select reminder times and adjust how frequently meal reminders are suggested.
+- **FR-015**: The app MUST let users edit reminder times, and the number of reminders MUST equal the user's daily meal target (up to a stated maximum), so that how often reminders are suggested follows the target rather than a separate setting.
 - **FR-016**: The app MUST provide a prominent home-screen reminder toggle and a corresponding setting that enable and disable device meal reminders consistently.
 - **FR-017**: The app MUST offer a meal-logging action in reminders and, where supported by the device, allow the user to enter a meal name and save it without opening the app.
 - **FR-018**: The app MUST respect device notification controls, including Do Not Disturb, and MUST NOT imply that a user can grant the app authority to bypass them.
@@ -174,7 +224,15 @@ A user checks the home screen to see a bear, food bowl, Sudoku paper, meal progr
 - **FR-058**: After the user has been in the app for a while without interacting with the bear, the bear MUST occasionally perform a bored behavior, chosen at random: waving both arms while bending its knees a few times, or "kicking sand" with small waving motions of lowered arms.
 - **FR-059**: When a meal is saved (the bear is fed), the bear MUST jump and wave, and hearts MUST pop up near it and then disappear.
 - **FR-060**: When the Sudoku entry is selected, the bear MUST perform one of the tap reactions in FR-024.
-- **FR-061**: Bear animations MUST NOT block interaction, MUST NOT overlap in a way that distorts the artwork (a new reaction replaces a running reaction of the same kind), and MUST stop when the home screen is not visible. When the device requests reduced motion, breathing, blinking, ear waves and bored animations MUST NOT run unless the user turns on an "Always animate the bear" setting; tapping the bear and feeding it always play.
+- **FR-061**: Bear animations MUST NOT block interaction, MUST NOT overlap in a way that distorts the artwork (a new reaction replaces a running reaction of the same kind), and MUST stop when the home screen is not visible. A single on/off "Animate the bear" setting MUST control the idle animations (breathing, blinking, ear waves, bored moves): when on they run even if the device requests reduced motion; when off they do not run. Tapping and feeding the bear always play.
+- **FR-062**: The bear's idle animations MUST appear continuous in supported desktop browsers and on supported phones, without visible stutter (see SC-023).
+- **FR-063**: Settings MUST include a clearly labelled, easy-to-find "Log out" action that signs the user out, removes the saved sign-in from the device, cancels any scheduled device reminders, and returns to the sign-in screen without changing server-side data.
+- **FR-064**: Password recovery MUST NOT be offered in the app in this release. The registration screen MUST tell users to remember their password or write it down somewhere safe, in a friendly tone that acknowledges account recovery is still being figured out.
+- **FR-065**: When reminders cannot be relied on to fire (not yet working or unsupported on the device), the reminder switches on the home screen and in settings MUST NOT show reminders as active and MUST explain, in plain friendly words, that reminders are still being figured out. Reminder times remain editable and saved.
+- **FR-066**: Default reminder times MUST follow a typical meal rhythm and be shown as 24-hour clock times; adding meals to the target adds later-in-the-day or in-between times; times the user has edited MUST be kept when the target changes.
+- **FR-067**: The home-screen daily goal bar MUST show meals logged today out of the meal target, fill in proportion (clamped between empty and full), and update immediately when meals are added or deleted, when the target changes, and after the app is reopened.
+- **FR-068**: The app MUST have an app icon showing the bear's head, used as the installed-app icon on iOS and Android and as the browser tab icon on web.
+- **FR-069**: The project MUST contain a single, current API implementation. Any older duplicate backend that nothing uses MUST be removed without changing any behavior, test, or documented setup step.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -213,6 +271,12 @@ A user checks the home screen to see a bear, food bowl, Sudoku paper, meal progr
 - **SC-020**: On representative physical devices and in Expo Go where supported, the recorded test report includes the device/runtime, network conditions, latency percentiles, failure rate, resource observations, and unsupported capabilities.
 - **SC-021**: In testing on a supported phone (Expo Go) and a desktop browser, each bear behavior (tap reaction variants, blink, ear wave, both bored behaviors, feed jump with hearts, Sudoku reaction) can be triggered or observed within five minutes of normal use, and the bear returns to its resting pose afterwards.
 - **SC-022**: During bear animation, interactions elsewhere on the home screen still give feedback within 100 ms (SC-014).
+- **SC-023**: In a one-minute observation of the idle bear in a desktop browser and on a phone, reviewers see no visible stutter or jumps in the breathing motion.
+- **SC-024**: At least 90% of users in a usability test find and use "Log out" in settings within 10 seconds and land on the sign-in screen.
+- **SC-025**: For every meal target from 1 to the reminder maximum, the number of reminder blocks equals the target, with different, ordered, valid clock times.
+- **SC-026**: For targets 1 to 8, logging k meals (0 <= k <= target) shows exactly k out of target on the goal bar with a proportional fill, before and after reopening the app.
+- **SC-027**: 100% of registration screens show the password-safekeeping notice; 0 screens offer "forgot password"; 0 screens show a timezone setting.
+- **SC-028**: When reminders are not working, 0 of the reminder switches show an active state, and each shows the explanatory note.
 
 ## Assumptions
 
@@ -234,9 +298,13 @@ A user checks the home screen to see a bear, food bowl, Sudoku paper, meal progr
 - Concurrent updates use field-level conflict detection: the first update to a field is saved, and a later update based on an older value for that same field is rejected with a recoverable conflict rather than silently overwriting the new value. Concurrent changes to different fields or records both persist. The user refreshes before reapplying a conflicting field change.
 - Offline mode does not support creating or editing records. Previously loaded screens may remain viewable only with a clear stale-data indicator; writes wait for the user to reconnect and retry.
 - The 30-minute stability scenario includes at least 500 common screen transitions and repeated network failure/recovery cycles; resource growth is assessed after initial warm-up on the same device and runtime.
+- Reminders are local notifications scheduled on the device (Expo Go and development builds on Android and iPhone; not the web). The meal-logging action is a text field on the reminder; the sign-in token is kept in the device's secure storage only so the action can save while the app is closed. See `notifications-setup.md`.
 - Reminder frequency and selected times are user-controlled. A one-hour follow-up reminder is not sent unless the user selects a schedule that includes it.
 - The app's mute control applies to in-app music and sound effects, not device notification sounds.
 - Account recovery is available only when the user can access the email address associated with the account. A password-reset request is answered identically whether or not the account exists; the single-use code (valid 30 minutes, stored only as a hash, replaced by any newer request) is delivered by email when the server has SMTP configured. On a development machine without SMTP the message is written to a git-ignored `server/.dev-outbox/` file so the flow can be tried; in production without SMTP nothing is delivered. The code is never returned by the API or written to logs.
 - Food and activity entries are private personal records; the app does not provide dietary or medical advice.
 - The bear's autonomous behaviors are playful and random, not tied to health or meal data; their frequency is tuned for testing (blink every few seconds, ear wave every ~8–20 s, bored behavior after ~30 s of no interaction) and may be adjusted without changing this specification.
 - Feeding means saving a meal entry; the feed reaction plays when the user returns to the home screen after saving.
+- Latest hands-on-testing changes (2026-10-25): timezone follows the device; the bear animation setting is a plain on/off (default on) and replaces the earlier follow-the-device behavior; log-out is a visible button in settings; password recovery and working device reminders are postponed (`future_considerations.md`, `notifications-setup.md`) and the app says so honestly.
+- The maximum number of reminder blocks is 12 per day. Default times are chosen from a fixed rhythm table (for example three meals at about 08:00, 12:30 and 18:30); the exact table is a planning detail.
+- The "Animate the bear" setting is stored on the device, not on the account.

@@ -187,3 +187,86 @@ unsupported universal absolute-memory limit.
   repeated network recovery.
 - Set one absolute memory cap across all devices: rejected because hardware/runtime differences
   make an unqualified cap misleading.
+
+## Increment 2 research (2026-10-25)
+
+## 12. `ExpoTopicSubscriptionModule` error in Expo Go
+
+**Finding**: `expo-notifications` loads `TopicSubscriptionModule.android.js`, which calls
+`requireNativeModule('ExpoTopicSubscriptionModule')` as soon as the package is imported. Expo Go's Android binary
+does not include that native module (topic subscriptions are remote-push features, removed from Expo Go on Android
+in SDK 53), so merely importing the package raises the error, whatever the app then does with it.
+
+**Decision**: Do not import `expo-notifications` anywhere while device reminders are postponed. Gate every dynamic
+import behind `REMINDER_DELIVERY_ENABLED`. When notifications return, import only inside a runtime check and wrap
+the import in `try/catch` (already done) and use a development build for full behavior.
+
+**Alternatives considered**: remove the dependency (rejected: it is needed later and its config plugin is in
+`app.json`); patch the package (rejected: fragile); keep importing and swallow the error (rejected: the error is
+still logged as a red box in development and misleads testers).
+
+## 13. Choppy breathing on web
+
+**Finding**: The animation loop re-renders about 25 SVG groups from one shared context 30 times a second even when
+only the breathing scale changes by under 1%, and steps at 30 frames per second; both make a subtle motion look
+uneven in browsers.
+
+**Decision**: Per-part subscriptions (only a part whose pose changed re-renders), frames driven by
+`requestAnimationFrame` at the display rate, and no render when the pose is unchanged. Verify with a recorded frame
+time sample in a desktop browser (target: no frame over 33 ms in one minute) before and after.
+
+**Alternatives considered**: CSS keyframe animation for web only (rejected: two code paths, hard to combine with
+reactions); lowering amplitude (rejected: hides the symptom).
+
+## 14. Daily goal bar
+
+**Finding**: With a new account in a desktop browser the bar width, the "k/target" label and the API count agree
+after each save. The previously unnoticed risk: the server counts days in the account's stored timezone, which
+defaulted to UTC for accounts created before the device timezone was sent; late/early local meals then belong to the
+neighbouring UTC day.
+
+**Decision**: Make the first task a reproduction (an account with UTC timezone and a meal logged in another timezone's
+early hours), turn it into a failing test, then rely on automatic timezone sync (FR-006). If the user's report is about
+the streak bar or only appears on phones, extend the investigation there before closing it.
+
+## 15. Reminder blocks equal to the meal target
+
+**Decision**: The server enforces `reminderTimes.length = min(dailyMealGoal, 12)`, filling from a rhythm function:
+1 meal 12:00; 2 meals 08:00 and 18:00; 3 meals 08:00, 12:30, 18:30; 4 meals add 15:30; 5 meals add 10:30; 6 or more
+spread evenly from 07:30 to 21:00 in 5-minute steps. Raising the target keeps existing times and adds the nearest
+unused rhythm times; lowering it removes the latest times unless the schedule was still the untouched default (then it
+is regenerated). The cap of 12 keeps the schedule readable and well under platform notification limits.
+
+**Alternatives considered**: client-only logic (rejected: two clients could diverge); one block per meal without cap
+(rejected: a target of 312 would create 312 blocks).
+
+## 16. Automatic timezone
+
+**Decision**: The device timezone is the single source. The client sends it at registration and PATCHes the profile
+at sign-in/app open when it differs from the stored value. Stored meal moments are absolute, so a change only
+affects display and day boundaries.
+
+## 17. Log out
+
+**Decision**: Sign-out is client-side: clear session state, stored token and device reminders. The access token is
+stateless and expires on its own (7 days); a server-side revocation list is out of scope. Document this limit.
+
+## 18. Password recovery postponed
+
+**Decision**: Remove the user-facing flow; keep the server code behind `PASSWORD_RESET_ENABLED` (default false) so
+no dead endpoint is exposed and the work is not lost. Registration shows the safekeeping notice. Details of what blocks
+real email are in `future_considerations.md`.
+
+## 19. App icon from the bear's head
+
+**Decision**: Render the head, ears and face groups of `bear.svg` to square PNGs with the existing SVG renderer
+(`@resvg/resvg-js`, development dependency) in a script, on a solid brand-colour background, with safe-zone padding for
+the Android adaptive icon. The generated files are committed; the script can be re-run when the art changes.
+
+## 20. Removing `backend/`
+
+**Finding**: `backend/` has 248 lines, six empty files (Bear, DailyActivity, bear/activity/settings routes, energy
+service), its own dependency set, and nothing in `server/`, `mobile/`, scripts or docs depends on it.
+
+**Decision**: Delete it, and remove mentions from documentation; Git history keeps the code (last version in commit
+`9d0155f`). Record this in `future_considerations.md` so the empty energy/activity placeholders are not lost as ideas.

@@ -86,6 +86,46 @@ users and their records are cleaned up after each test.
 - User Story 1 checkpoint: registration, sign-in, profile, timezone-aware meal history, past-meal entry, duplicate
   email rejection, account deletion and recovery pass their tests.
 
+### User Story 2 slice 1 record (T028-T033)
+
+- 2026-10-25: tests first (5 failed as expected), then code. API 59/59 against `bear_buddy_test`, API typecheck and build
+  passed; mobile 46/46 and typecheck passed. Reminder times are 1-8 distinct HH:mm values stored in time order; a timezone
+  change leaves them untouched (they are device wall-clock times). Home toggle and settings switch share
+  `setRemindersEnabled`; reminders show as on only when the device schedule and the saved preference both succeeded.
+- Checked in a headless browser: on web both toggles explain that reminders need the phone app and stay off; times can be
+  added, removed and saved. **Not yet checked on a device**: permission grant/denial, scheduled notifications firing, Do Not
+  Disturb behavior (needs a development build; Expo Go cannot schedule notifications) - this is T035.
+
+### Notification review and actions record (T034, 2026-10-25)
+
+- Review found and fixed: no foreground handler, reminders wrongly blocked in Expo Go, silent low-priority Android channel,
+  taps ignored, no interactive action. Added the "Log a meal" text action (saved once, remembered across restarts, token in
+  secure storage). `npm audit fix` + vitest 5: server 0 vulnerabilities, mobile 5 remaining inside Expo's CLI (no patch
+  available). Mobile 57/57 tests and typecheck, server 59/59; iOS, Android and web bundles build. **Not yet run on a phone**:
+  see `notifications-setup.md` for the steps and what to record.
+
+## Increment 2 validation (User Story 4)
+
+Run on a phone in Expo Go and on a desktop browser. Record device, date and result under each step.
+
+1. **Opens in Expo Go**: Android and iPhone open the app with no `ExpoTopicSubscriptionModule` or other red-box error.
+2. **Smooth breathing** (SC-023): watch the idle bear for one minute; no visible stutter. In a browser, record frame
+   times from the performance panel for one minute (none above 33 ms).
+3. **Animate switch**: with the device set to reduce motion, switch on shows idle animations; switch off stops them;
+   tapping the bear still reacts.
+4. **Log out** (SC-024): from settings, press "Log out"; the sign-in screen appears; signing in again shows the same data.
+5. **Timezone**: settings have no timezone field. Change the device timezone, reopen the app: meal times and the day
+   change follow it; an old meal keeps its moment.
+6. **Reminder blocks** (SC-025): with meal targets 1, 3, 5, 8 and 12 the number of blocks matches; times are 24-hour,
+   ordered and different; changing the target adds or removes blocks and keeps edited times.
+7. **Goal bar** (SC-026): log k meals for k = 0..target; the bar shows k/target and fills proportionally; reopen the app
+   and delete a meal; it follows. Repeat for an account whose timezone differs from UTC, around midnight.
+8. **Password notice** (SC-027): registration shows the safekeeping note and quip; sign-in has no "forgot password";
+   settings have no timezone.
+9. **Reminder note** (SC-028): both reminder switches stay off and show the "still being figured out" note.
+10. **App icon**: the home-screen icon (installed build) and the browser tab show the bear's head.
+11. **Backend removal** (FR-069): `backend/` is gone; server tests/build, mobile tests and typecheck all pass.
+
 ## API reachability and endpoint switching
 
 1. Start the API from `server/` using `npm run dev`; verify `GET /health`.

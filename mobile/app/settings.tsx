@@ -3,19 +3,23 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, Tex
 import api, { AuthSession, errorMessage, Profile } from "../src/services/api";
 import { isTimeZone } from "../src/services/time";
 import { getAlwaysAnimate, setAlwaysAnimate } from "../src/services/bearPrefs";
-import { clearMealReminders, remindersAvailable, requestReminderPermission, scheduleMealReminders } from "../src/services/reminders";
+import { DEVICE_CONTROLS_NOTE, disableMealReminders, reminderSupport } from "../src/services/reminders";
+import { checkReminderTimes, saveReminderTimes, setRemindersEnabled } from "../src/services/reminderSettings";
 import ApiConnectionSettings from "../src/components/ApiConnectionSettings";
 
 interface SettingsScreenProps {
 	session: AuthSession;
 	onProfileChanged: (profile: Profile) => void;
+	/** True when this device has the reminders scheduled (not just saved on the account). */
+	deviceReminders: boolean;
+	onDeviceReminders: (scheduled: boolean) => void;
 	onAccountDeleted: () => void;
 }
 
-export default function SettingsScreen({ session, onProfileChanged, onAccountDeleted }: SettingsScreenProps) {
-	const canScheduleReminders = remindersAvailable();
+export default function SettingsScreen({ session, onProfileChanged, deviceReminders, onDeviceReminders, onAccountDeleted }: SettingsScreenProps) {
+	const support = reminderSupport();
 	const [profile, setProfile] = useState(session.user);
-	const [times, setTimes] = useState(session.user.reminderTimes.slice(0, 3));
+	const [times, setTimes] = useState(session.user.reminderTimes);
 	const [error, setError] = useState<string | null>(null);
 	const [isSaving, setIsSaving] = useState(false);
 
@@ -35,27 +39,39 @@ export default function SettingsScreen({ session, onProfileChanged, onAccountDel
 	};
 
 	const toggleReminders = async (enabled: boolean) => {
-		if (enabled) {
-			const permitted = await requestReminderPermission();
-			if (!permitted) {
-				setError("Allow notifications in your device settings to turn reminders on.");
-				return;
-			}
-			const updated = await save({ notificationsEnabled: true, reminderTimes: times });
-			if (updated) await scheduleMealReminders(updated.reminderTimes);
-		} else {
-			const updated = await save({ notificationsEnabled: false });
-			if (updated) await clearMealReminders();
+		setIsSaving(true);
+		setError(null);
+		const outcome = await setRemindersEnabled(session.accessToken, profile, enabled);
+		setIsSaving(false);
+		if (outcome.ok) {
+			setProfile(outcome.user);
+			onProfileChanged(outcome.user);
+			onDeviceReminders(enabled);
+			return;
 		}
+		if (outcome.user) { setProfile(outcome.user); onProfileChanged(outcome.user); }
+		if (enabled) onDeviceReminders(false);
+		setError(outcome.message);
 	};
 
 	const updateReminderTimes = async () => {
-		if (times.length !== 3 || times.some((time) => !/^([01]\d|2[0-3]):[0-5]\d$/.test(time))) {
-			setError("Enter three times in 24-hour format, such as 09:00.");
+		const checked = checkReminderTimes(times);
+		if (!checked.ok) {
+			setError(checked.message);
 			return;
 		}
-		const updated = await save({ reminderTimes: times });
-		if (updated?.notificationsEnabled) await scheduleMealReminders(updated.reminderTimes);
+		setIsSaving(true);
+		setError(null);
+		const outcome = await saveReminderTimes(session.accessToken, profile, checked.times);
+		setIsSaving(false);
+		if (outcome.ok) {
+			setProfile(outcome.user);
+			onProfileChanged(outcome.user);
+			setTimes(outcome.user.reminderTimes);
+			return;
+		}
+		if (outcome.user) { setProfile(outcome.user); onProfileChanged(outcome.user); setTimes(outcome.user.reminderTimes); onDeviceReminders(false); }
+		setError(outcome.message);
 	};
 
 	const [goalText, setGoalText] = useState(String(session.user.dailyMealGoal));
@@ -92,7 +108,7 @@ export default function SettingsScreen({ session, onProfileChanged, onAccountDel
 		const result = await api.deleteAccount(session.accessToken);
 		setIsSaving(false);
 		if (result.ok) {
-			await clearMealReminders();
+			await disableMealReminders();
 			onAccountDeleted();
 		} else {
 			setConfirmingDelete(false);
@@ -135,16 +151,21 @@ export default function SettingsScreen({ session, onProfileChanged, onAccountDel
 				<View style={styles.settingRow}>
 					<View style={styles.settingCopy}>
 						<Text style={styles.sectionTitle}>Meal reminders</Text>
-						<Text style={styles.description}>{canScheduleReminders ? "Daily device notifications at times you choose." : "Reminders need a development build; sign-in and meal logging work in Expo Go."}</Text>
+						<Text style={styles.description}>{support.supported ? "Daily notifications on this device at the times you choose." : support.message}</Text>
+						{support.supported && profile.notificationsEnabled && !deviceReminders ? <Text style={styles.description}>Reminders are saved for your account but are not scheduled on this device yet. Turn them off and on again to schedule them.</Text> : null}
 					</View>
-					<Switch value={profile.notificationsEnabled} onValueChange={(enabled) => void toggleReminders(enabled)} accessibilityLabel="Meal reminders" disabled={!canScheduleReminders} />
+					<Switch value={profile.notificationsEnabled && deviceReminders} onValueChange={(enabled) => void toggleReminders(enabled)} accessibilityLabel="Meal reminders" disabled={isSaving} />
 				</View>
-				{profile.notificationsEnabled && times.map((time, index) => <View key={index} style={styles.timeRow}>
-					<Text style={styles.label}>Reminder {index + 1}</Text>
+				<Text style={styles.label}>Reminder times ({times.length} a day)</Text>
+				{times.map((time, index) => <View key={index} style={styles.timeRow}>
 					<TextInput accessibilityLabel={`Reminder ${index + 1} time`} style={[styles.input, styles.timeInput]} value={time} onChangeText={(value) => setTimes(times.map((entry, entryIndex) => entryIndex === index ? value : entry))} placeholder="09:00" keyboardType="numbers-and-punctuation" maxLength={5} />
+					{times.length > 1 ? <Pressable accessibilityRole="button" accessibilityLabel={`Remove reminder ${index + 1}`} onPress={() => setTimes(times.filter((_, entryIndex) => entryIndex !== index))}><Text style={styles.removeText}>Remove</Text></Pressable> : null}
 				</View>)}
-				{profile.notificationsEnabled ? <Pressable style={styles.secondaryButton} onPress={() => void updateReminderTimes()} disabled={isSaving}><Text style={styles.secondaryButtonText}>{isSaving ? "Saving..." : "Save reminder times"}</Text></Pressable> : null}
-				<Text style={styles.footnote}>Your device controls whether reminders appear during Do Not Disturb or Focus modes.</Text>
+				<View style={styles.timeActions}>
+					{times.length < 8 ? <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => setTimes([...times, "12:00"])}><Text style={styles.secondaryButtonText}>Add a reminder</Text></Pressable> : null}
+					<Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => void updateReminderTimes()} disabled={isSaving}><Text style={styles.secondaryButtonText}>{isSaving ? "Saving..." : "Save reminder times"}</Text></Pressable>
+				</View>
+				<Text style={styles.footnote}>{DEVICE_CONTROLS_NOTE}</Text>
 			</View>
 
 			{error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
@@ -173,6 +194,8 @@ const styles = StyleSheet.create({
 	sectionTitle: { color: "#1d2923", fontSize: 17, fontWeight: "700", marginBottom: 12 },
 	label: { color: "#58665e", fontSize: 12, marginBottom: 6 },
 	input: { minHeight: 46, borderWidth: 1, borderColor: "#cbd6cd", borderRadius: 6, paddingHorizontal: 12, color: "#1d2923", marginBottom: 14, fontSize: 15, backgroundColor: "#fff" },
+	removeText: { color: "#a6372d", fontSize: 13, paddingHorizontal: 10, paddingVertical: 8 },
+	timeActions: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
 	goalInput: { width: 90 },
 	goalRow: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
 	goal: { width: 38, height: 38, borderWidth: 1, borderColor: "#cbd6cd", borderRadius: 6, alignItems: "center", justifyContent: "center", backgroundColor: "#fff" },

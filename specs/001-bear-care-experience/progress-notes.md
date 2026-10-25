@@ -9,7 +9,8 @@ Authoritative requirements stay in `spec.md`; task status stays in `tasks.md`. L
 |---|---|
 | 1 Setup, 2 Stabilization | Done (T001-T016) |
 | 3 User Story 1 (account + meals) | Done (T017-T027); only manual phone/desktop checks remain |
-| 4 User Story 2 (reminders) | Not started (T028-T035) |
+| 7 Increment 2 / User Story 4 (polish, honest settings) | Specified, planned, tasked (T063-T084); T071/T072 code done, rest open |
+| 4 User Story 2 (reminders) | T028, T029, T031-T034 done; **left: T030 (screen-level tests), T035 (device checks, see `notifications-setup.md`)** |
 | 5 User Story 3 (steps, energy, Sudoku, rewards) | Not started, except bear animation T058-T060 and T061 (done), T062 (device validation) open |
 | 6 Polish / performance | Not started (T050-T057) |
 
@@ -33,12 +34,13 @@ Authoritative requirements stay in `spec.md`; task status stays in `tasks.md`. L
 ## Phase 3 (User Story 1) wrap-up
 
 - Password reset (T026) is built: hashed single-use 30-minute code; delivered by SMTP (`SMTP_URL`) or, in development
-  only, written to `server/.dev-outbox/`. **Decision for later**: choose a real mail provider before any deployment.
+  only, written to `server/.dev-outbox/`. Real delivery via Brevo is **postponed** (needs a domain, DKIM approval and a low
+  spam rate): see `future_considerations.md`.
 - Meal target (FR-007) is now a number field (any whole number from 1), no longer buttons 1-8.
 - Still to do by hand, on phone (Expo Go) and desktop browser: seven-second banner, deletion confirmation, password reset,
   timezone display. Record results in `quickstart.md`.
 - Account deletion on the server uses a MongoDB transaction (works on Atlas; needs a replica set locally).
-- **Next: Phase 4 (reminders, T028-T035).**
+- Next: you run the device checks (T035) using `notifications-setup.md`; then Phase 5.
 
 ## How we work (agreed)
 
