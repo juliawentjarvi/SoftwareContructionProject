@@ -45,6 +45,11 @@ Saga Malmio, Julia Wentjärvi, Eevi Nikkilä
 - Spec Kit 1.2.3
 - Claude
 
+## Vibe coding and SDD
+The versions for vibe coding and SDD are in different branches. 
+- Vibe coding: branch1
+- SDD: review-baseline.
+
 ## How to install and run the application
 You need Node.js (LTS) and a free MongoDB Atlas database. Test on a phone with the **Expo Go** app, or in a desktop browser.
 
@@ -59,5 +64,3 @@ You need Node.js (LTS) and a free MongoDB Atlas database. Test on a phone with t
      sign-in screen can override the address.
 3. Create an account. There is no "forgot password" yet, so remember or write down the password.
 
-## Vibe coding and SDD
-The versions for vibe coding and SDD are in different branches. Vibe coding is in branch1 and SDD is in review-baseline.
