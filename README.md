@@ -68,6 +68,7 @@ You need Node.js (LTS) and a free MongoDB Atlas database. Test on a phone with t
 ## Project Development
 
 **Modifications**
+
 Modifications where made throughout the project to improve the outcome.
    - Improved the sudoku game by adding validation for incorrect numbers, automatic compleation checks, and progress saving.
    - Refined bear animations and interactions to improve the UX.
@@ -76,6 +77,7 @@ Modifications where made throughout the project to improve the outcome.
    - Updated the specifications and implementation based on testing results and identified limitations.
      
 **Issues**
+
 Some technical challenges were encountered during the development phase:
    - TypeScript configuration: Conflicts between module imports and TS configuration caused errors during development.
    - MongoDB Atlas connection: Connecting the application to MongoDB Atlas caused compatibality and configuration problems.
@@ -84,6 +86,7 @@ Some technical challenges were encountered during the development phase:
    - Time-zone testing: A test related to daily meal counts and time-zone handling failed because the expected data was undefined.
      
 **Discussion**
+
 Discussions within the team were held during the development phase about the project's architecture and functionality
    - Database: MongoDB Atlas was chosen as the database instead of PostgreSQL, due to familiarity.
    - Specification refinement: Requirements were updated throughout development to address usability issues, technical limitations, and testing results.
